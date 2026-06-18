@@ -1,0 +1,488 @@
+openapi: 3.1.0
+
+info:
+  title: Product service API
+  description: "Микросервис товаров для маркетплейса"
+  version: 1.0.0
+  contact:
+    name: Полина Соломонова
+    email: snoomew@mail.ru
+
+paths:
+  /products:
+    get:
+      security: []
+
+      tags:
+        - Products
+
+      summary: Просмотр товаров
+      operationId: getProducts
+
+      parameters:
+        - in: query
+          name: name
+          description: Фильтр по названию товара
+          schema:
+            type: string
+
+        - in: query
+          name: category
+          description: Фильтр по категории товара
+          schema:
+            type: string
+
+        - in: query
+          name: min_price
+          description: Фильтр по минимальной стоимости товара
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+
+        - in: query
+          name: max_price
+          description: Фильтр по максимальной стоимости товара
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+
+        - in: query
+          name: min_rating
+          description: Фильтр по рейтингу
+          schema:
+            type: number
+            format: float
+            minimum: 0
+            maximum: 5
+
+        - in: query
+          name: delivery_days
+          description: Фильтр по сроку доставки
+          schema:
+            type: integer
+            minimum: 0
+
+        - in: query
+          name: sort_by
+          description: Поле сортировки
+          schema:
+            type: string
+
+            enum:
+              - price
+              - rating
+
+        - in: query
+          name: order
+          description: Направление сортировки
+          schema:
+            type: string
+
+            enum:
+              - asc
+              - desc
+            default: asc
+
+        - in: query
+          name: page
+          description: Номер страницы
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+
+        - in: query
+          name: page_size
+          description: Размер страницы
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+
+      responses:
+        "200":
+          description: Результаты поиска по запросу
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductListResponse"
+
+        "400":
+          description: Неверные парметры
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      security:
+        - bearerAuth: []
+      description: |
+        Доступно только пользователям с ролью employee.
+
+      tags:
+        - Products
+
+      summary: Создание товара
+      operationId: createProduct
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductCreateRequest"
+
+      responses:
+        "201":
+          description: Товар создан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductResponse"
+
+        "400":
+          description: Неверные данные
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+        "401":
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+        "403":
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+        "500":
+          description: Внутренняя ошибка сервера
+
+  /products/{id}:
+    get:
+      security: []
+
+      tags:
+        - Product
+
+      summary: Просмотр товара
+      operationId: getByID
+
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: UUID товара
+          schema:
+            type: string
+            format: uuid
+
+      responses:
+        "200":
+          description: Товар найден
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductResponse"
+
+        "404":
+          description: Товар не найден
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+        "400":
+          description: Некорректный UUID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    patch:
+      security:
+        - bearerAuth: []
+      description: |
+        Доступно только пользователям с ролью employee.
+
+      tags:
+        - Product
+
+      summary: Обновление товара
+      operationId: updateProduct
+
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: UUID товара
+          schema:
+            type: string
+            format: uuid
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdateRequest"
+
+      responses:
+        "200":
+          description: Товар успешно обновлен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductResponse"
+
+        "400":
+          description: Некорректные данные
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+        "404":
+          description: Товар не найден
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      security:
+        - bearerAuth: []
+      description: |
+        Доступно только пользователям с ролью employee.
+
+      tags:
+        - Product
+
+      summary: Удаление товара
+      operationId: deleteProduct
+
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: UUID товара
+          schema:
+            type: string
+            format: uuid
+
+      responses:
+        "204":
+          description: Товар успешно удален
+
+        "400":
+          description: Некорректный UUID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+        "404":
+          description: Товар не найден
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    ProductResponse:
+      type: object
+
+      required:
+        - id
+        - name
+        - category
+        - description
+        - price
+        - delivery_days
+        - rating
+        - created_at
+        - updated_at
+
+      properties:
+        id:
+          type: string
+          format: uuid
+
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+
+        description:
+          type: string
+          maxLength: 5000
+
+        category:
+          type: string
+
+        price:
+          description: Цена в копейках
+          type: integer
+          format: int64
+          minimum: 0
+
+        delivery_days:
+          type: integer
+          minimum: 0
+
+        rating:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 5
+
+        created_at:
+          type: string
+          format: date-time
+
+        updated_at:
+          type: string
+          format: date-time
+
+    ProductCreateRequest:
+      type: object
+
+      required:
+        - name
+        - description
+        - category
+        - price
+        - delivery_days
+
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+
+        description:
+          type: string
+          maxLength: 5000
+
+        category:
+          type: string
+
+        price:
+          type: integer
+          format: int64
+          minimum: 0
+
+        delivery_days:
+          type: integer
+          minimum: 0
+
+    ProductUpdateRequest:
+      type: object
+
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+
+        description:
+          type: string
+          maxLength: 5000
+
+        category:
+          type: string
+
+        price:
+          type: integer
+          format: int64
+          minimum: 0
+
+        delivery_days:
+          type: integer
+          minimum: 0
+
+    ProductListResponse:
+      type: object
+
+      required:
+        - items
+        - total
+        - page
+        - page_size
+
+      properties:
+        items:
+          type: array
+
+          items:
+            $ref: "#/components/schemas/ProductResponse"
+
+        total:
+          type: integer
+          format: int64
+
+        page:
+          type: integer
+          minimum: 1
+
+        page_size:
+          type: integer
+          minimum: 1
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+
+      properties:
+        code:
+          type: string
+
+        message:
+          type: string
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
