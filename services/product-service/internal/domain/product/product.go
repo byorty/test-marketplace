@@ -7,13 +7,13 @@ import (
 )
 
 type Product struct {
-	ID uuid.UUID
-	Name string
-	Description string
-	Price int64
-	Category string
-	Rating float64
+	ID           uuid.UUID
+	Name         string
+	Description  string
+	Price        int64
+	Category     string
+	Rating       float64
 	DeliveryDays int
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
