@@ -8,7 +8,7 @@ func (p *Product) Validate() error {
 	if p.Price < 0 {
 		return ErrInvalidPrice
 	}
-	
+
 	if p.DeliveryDays < 1 {
 		return ErrInvalidDeliveryDays
 	}

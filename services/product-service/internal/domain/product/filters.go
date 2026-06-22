@@ -1,37 +1,37 @@
 package product
 
-type SortBy string 
+type SortBy string
 
 const (
-	SortByPrice SortBy = "price"
+	SortByPrice  SortBy = "price"
 	SortByRating SortBy = "rating"
 )
 
-type SortOrder string 
+type SortOrder string
 
 const (
-	Asc SortOrder = "asc"
+	Asc  SortOrder = "asc"
 	Desc SortOrder = "desc"
 )
 
 type ListFilter struct {
-	Name string
-	Category string
-	MinPrice *int64
-	MaxPrice *int64
-	MinRating *float64
+	Name         string
+	Category     string
+	MinPrice     *int64
+	MaxPrice     *int64
+	MinRating    *float64
 	DeliveryDays *int
 
 	SortBy SortBy
-	Order SortOrder
+	Order  SortOrder
 
-	Page int
+	Page     int
 	PageSize int
 }
 
 type ProductList struct {
-	Items []Product
-	Total int64
-	Page int
-	PageSize int 
+	Items    []Product
+	Total    int64
+	Page     int
+	PageSize int
 }
