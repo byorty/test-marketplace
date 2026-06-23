@@ -23,11 +23,12 @@ func New(db *gorm.DB) *Repository {
 
 func (r *Repository) Create(ctx context.Context, p *domain.Product) error {
 	const op = "Repository.Create"
-	model := fromDomain(p)
+	model := toModel(p)
 
 	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
+	
 	return nil
 }
 
@@ -48,54 +49,27 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Product
 	return toDomain(model), nil
 }
 
+func (r *Repository) Update(ctx context.Context, p *domain.Product) error {
+	const op = "Repository.Update"
+	p.UpdatedAt = time.Now()
+
+	result := r.db.WithContext(ctx).Model(&ProductModel{}).Where("id = ?", p.ID).Updates(toModel(p))
+
+	if result.Error != nil {
+		return fmt.Errorf("%s: %w", op, result.Error)
+	}
+
+	if result.RowsAffected == 0 {
+		return domain.ErrProductNotFound
+	}
+
+	return nil
+}
+
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	const op = "Repository.Delete"
 	result := r.db.WithContext(ctx).Delete(&ProductModel{}, "id = ?", id)
 
-	if result.RowsAffected == 0 {
-		return domain.ErrProductNotFound
-	}
-
-	if result.Error != nil {
-		return fmt.Errorf("%s: %w", op, result.Error)
-	}
-
-	return nil
-}
-
-func (r *Repository) Update(ctx context.Context, id uuid.UUID, update domain.UpdateProduct) error {
-	const op = "Repository.Update"
-
-	updates := make(map[string]any)
-
-	if update.Name != nil {
-		updates["name"] = *update.Name
-	}
-
-	if update.Description != nil {
-		updates["description"] = *update.Description
-	}
-
-	if update.Category != nil {
-		updates["category"] = *update.Category
-	}
-
-	if update.Price != nil {
-		updates["price"] = *update.Price
-	}
-
-	if update.DeliveryDays != nil {
-		updates["delivery_days"] = *update.DeliveryDays
-	}
-
-	if len(updates) == 0 {
-		return domain.ErrEmptyUpdate
-	}
-
-	updates["updated_at"] = time.Now()
-
-	result := r.db.WithContext(ctx).Model(&ProductModel{}).Where("id = ?", id).Updates(updates)
-
 	if result.Error != nil {
 		return fmt.Errorf("%s: %w", op, result.Error)
 	}
@@ -103,10 +77,15 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, update domain.Upd
 	if result.RowsAffected == 0 {
 		return domain.ErrProductNotFound
 	}
+
 	return nil
 }
+
+
 
 func (r *Repository) List(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
+	const op = "Repository.List"
+
 	query := r.db.WithContext(ctx).Model(&ProductModel{}) 
 
 	if filter.Name != "" {
@@ -129,58 +108,72 @@ func (r *Repository) List(ctx context.Context, filter domain.ListFilter) (*domai
 		query = query.Where("rating >= ?", *filter.MinRating)
 	}
 
-	if filter.DeliveryDays != nil {
-		query = query.Where("delivery_days <= ?", *filter.DeliveryDays)
+	if filter.MaxDeliveryDays != nil {
+		query = query.Where("delivery_days <= ?", *filter.MaxDeliveryDays)
 	}
 
-	var orderClause string
-
-	switch filter.SortBy {
-	case domain.SortByPrice:
-		orderClause = "price"
-
-	case domain.SortByRating:
-		orderClause = "rating"
-	}
-
-	if orderClause != "" {
-		switch filter.Order {
-		case domain.Desc:
-			orderClause += " DESC"
-
-		default:
-			orderClause += " ASC"
-		}
-
-		query = query.Order(orderClause)
+	orderExpr := resolveOrder(filter.SortBy, filter.Order) 
+	if orderExpr != "" {
+		query = query.Order(orderExpr)
 	}
 
 	var total int64
-
 	if err := query.Count(&total).Error; err != nil {
-		return nil, fmt.Errorf("Repository.List.Count: %w", err)
+		return nil, fmt.Errorf("%s: count: %w", op, err)
 	}
 
-	offset := (filter.Page - 1) * filter.PageSize
+	page := filter.Page
+	if page <= 0 {
+		page = 1
+	}
 
-	query = query.Limit(filter.PageSize).Offset(offset)
+	pageSize := filter.PageSize
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	
+	offset := (page-1) * pageSize
 
 	var models []ProductModel
 
-	if err := query.Find(&models).Error; err != nil {
-		return nil, fmt.Errorf("Repository.List.Find: %w", err)
+	if err := query.Limit(pageSize).Offset(offset).Find(&models).Error; 
+	err != nil {
+		return nil, fmt.Errorf("%s: find: %w", op, err)
 	}
 
-	items := make([]domain.Product, len(models))
-
-	for i, m := range models {
-		items[i] = *toDomain(m)
+	items := make([]domain.Product, 0, len(models))
+	for _, m := range models {
+		items = append(items, *toDomain(m))
 	}
 
 	return &domain.ProductList{
 		Items: items,
 		Total: total,
-		Page: filter.Page,
-		PageSize: filter.PageSize,
+		Page: page,
+		PageSize: pageSize,
 	}, nil
+}
+
+func resolveOrder(sortBy domain.SortBy, order domain.SortOrder) string {
+	var column string
+
+	switch sortBy {
+	case domain.SortByPrice:
+		column = "price"
+	case domain.SortByRating:
+		column = "rating"
+	default:
+		return ""
+	}
+
+	dir := "ASC"
+
+	switch order {
+	case domain.Desc:
+		dir = "DESC"
+	case domain.Asc:
+		dir = "ASC"
+	}
+
+	return column + " " + dir
 }

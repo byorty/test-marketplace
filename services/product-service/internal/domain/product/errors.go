@@ -8,5 +8,4 @@ var (
 	ErrInvalidPrice        = errors.New("invalid product price")
 	ErrInvalidRating       = errors.New("invalid product rating")
 	ErrInvalidDeliveryDays = errors.New("invalid delivery days")
-	ErrEmptyUpdate         = errors.New("empty update request")
 )
