@@ -16,7 +16,7 @@ func toDomain(m ProductModel) *domain.Product{
 	}
 }
 
-func fromDomain(p *domain.Product) *ProductModel {
+func toModel(p *domain.Product) *ProductModel {
 	return &ProductModel{
 		ID: p.ID,
 		Name: p.Name,
