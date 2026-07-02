@@ -173,7 +173,11 @@ paths:
                 $ref: "#/components/schemas/Error"
 
         "500":
-          description: Внутренняя ошибка сервера
+          description: Внутренняя ошибка сервера"500"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /products/{id}:
     get:
