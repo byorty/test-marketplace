@@ -91,7 +91,7 @@ type ProductResponse struct {
 
 	// Price Цена в копейках
 	Price     int64     `json:"price"`
-	Rating    float32   `json:"rating"`
+	Rating    float64   `json:"rating"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
@@ -122,10 +122,10 @@ type GetProductsParams struct {
 	MaxPrice *int64 `form:"max_price,omitempty" json:"max_price,omitempty"`
 
 	// MinRating Фильтр по рейтингу
-	MinRating *float32 `form:"min_rating,omitempty" json:"min_rating,omitempty"`
+	MinRating *float64 `form:"min_rating,omitempty" json:"min_rating,omitempty"`
 
 	// DeliveryDays Фильтр по сроку доставки
-	DeliveryDays *int `form:"delivery_days,omitempty" json:"delivery_days,omitempty"`
+	MaxDeliveryDays *int `form:"delivery_days,omitempty" json:"delivery_days,omitempty"`
 
 	// SortBy Поле сортировки
 	SortBy *GetProductsParamsSortBy `form:"sort_by,omitempty" json:"sort_by,omitempty"`
@@ -290,7 +290,7 @@ func (siw *ServerInterfaceWrapper) GetProducts(w http.ResponseWriter, r *http.Re
 
 	// ------------- Optional query parameter "delivery_days" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "delivery_days", r.URL.Query(), &params.DeliveryDays, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "delivery_days", r.URL.Query(), &params.MaxDeliveryDays, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
@@ -720,12 +720,18 @@ func (response CreateProduct403JSONResponse) VisitCreateProductResponse(w http.R
 	return err
 }
 
-type CreateProduct500Response struct {
-}
+type CreateProduct500JSONResponse Error
 
-func (response CreateProduct500Response) VisitCreateProductResponse(w http.ResponseWriter) error {
+func (response CreateProduct500JSONResponse) VisitCreateProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
-	return nil
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type DeleteProductRequestObject struct {

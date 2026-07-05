@@ -5,39 +5,39 @@
 - description: string
 - price: int64
 - category: string
-- deliveryDays: int
-- rating: int32
-- createdAt: time.Time
-- updatedAt: time.Time
+- delivery_days: int
+- rating: float64
+- created_at: time.Time
+- updated_at: time.Time
 
 # Order:
 
 - id: UUID
-- userID: UUID
+- user_ID: UUID
 - status: NEW | PAID | DELIVERING | DELIVERED
-- totalPrice: int64
+- total_price: int64
 - createdAt: time.Time
-- deliveryDate: \*time.Time
+- delivery_date: time.Time
 
 # OrderItem:
 
 - id: UUID
-- orderID: UUID
-- productID: UUID
-- productName: string
-- productPrice: int64
+- order_ID: UUID
+- product_ID: UUID
+- product_name: string
+- product_price: int64
 - quantity: int
 
 # Cart:
 
 - id: UUID
-- userID: UUID
-- createdAt: time.Time
-- updatedAt: time.Time
+- user_ID: UUID
+- created_at: time.Time
+- updated_at: time.Time
 
 # CartItem:
 
 - id: UUID
-- cartID: UUID
-- productID: UUID
+- cart_ID: UUID
+- product_ID: UUID
 - quantity: int
