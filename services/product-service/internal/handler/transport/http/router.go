@@ -18,5 +18,6 @@ func NewRouter(handler api.StrictServerInterface) http.Handler {
 	strictHandler := api.NewStrictHandler(handler, nil)
 
 	api.HandlerFromMux(strictHandler, router)
+
 	return router
 }

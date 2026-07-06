@@ -7,16 +7,15 @@ import (
 	"time"
 
 	domain "github.com/byorty/test-marketplace/services/product-service/internal/domain/product"
-	r "github.com/byorty/test-marketplace/services/product-service/internal/repository/postgres"
 	"github.com/google/uuid"
 )
 
 type service struct {
-	repo r.Repository
+	repo domain.Repository
 	log *slog.Logger
 }
 
-func New(log *slog.Logger, repo r.Repository) *service {
+func New(log *slog.Logger, repo domain.Repository) *service {
 	return &service{
 		repo: repo,
 		log: log.With("layer", "service"),
