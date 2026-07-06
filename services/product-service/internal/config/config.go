@@ -29,7 +29,9 @@ type PostgresConfig struct {
 
     MaxOpenConns int `yaml:"max_open_conns" env-default:"20"`
     MaxIdleConns int `yaml:"max_idle_conns" env-default:"10"`
-    ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime" env-default:"30m"`
+   
+	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime" env-default:"30m"`
+	ConnMaxIdleTime time.Duration `yaml:"conn_max_idle_time" env-default:"15m"`
 }
 
 type LogConfig struct {
