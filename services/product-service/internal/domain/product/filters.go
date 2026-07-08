@@ -30,7 +30,7 @@ type ListFilter struct {
 }
 
 type ProductList struct {
-	Items    []Product
+	Items    []*Product
 	Total    int64
 	Page     int
 	PageSize int

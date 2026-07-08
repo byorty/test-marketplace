@@ -15,15 +15,15 @@ type service struct {
 	log *slog.Logger
 }
 
-func New(log *slog.Logger, repo domain.Repository) *service {
+func New(log *slog.Logger, repo domain.Repository) Service {
 	return &service{
 		repo: repo,
-		log: log.With("layer", "service"),
+		log: log.With(slog.String("layer", "service")),
 	}
 }
 
 func logError(log *slog.Logger, op string, err error) {
-	log.Error("operatoin failed", "op", op, "error", err)
+	log.Error("operatoin failed", slog.String("op", op), slog.Any("error", err))
 }
 
 func (s *service) Create(ctx context.Context, input *CreateProduct) (*domain.Product, error) {
@@ -32,17 +32,15 @@ func (s *service) Create(ctx context.Context, input *CreateProduct) (*domain.Pro
 	start := time.Now()
 
 	if input == nil {
-		err := fmt.Errorf("%s: nil input", op)
-		logError(s.log, op, err)
-		return nil, err
+		logError(s.log, op, ErrNilInput)
+		return nil, ErrNilInput
 	}
 
 	s.log.Info("create product started", "op", op, "name", input.Name, "price", input.Price)
 
 	if input.Name == "" {
-		err := ErrInvalidProductName
-		logError(s.log, op, err)
-		return nil, err
+		logError(s.log, op, ErrInvalidProductName)
+		return nil, ErrInvalidProductName
 	}
 
 	now := time.Now()
@@ -74,9 +72,8 @@ func (s *service) GetByID(ctx context.Context, id uuid.UUID) (*domain.Product, e
 	s.log.Debug("get product", "op", op, "id", id)
 
 	if id == uuid.Nil {
-		err := fmt.Errorf("%s: invalid id", op)
-		logError(s.log, op, err)
-		return nil, err
+		logError(s.log, op, ErrInvalidID)
+		return nil, ErrInvalidID
 	}
 
 	p, err := s.repo.GetByID(ctx, id)
@@ -96,9 +93,8 @@ func (s *service) Delete(ctx context.Context, id uuid.UUID) error {
 	s.log.Info("delete product", "op", op, "id", id)
 
 	if id == uuid.Nil {
-		err := fmt.Errorf("%s: invalid id", op)
-		logError(s.log, op, err)
-		return err
+		logError(s.log, op, ErrInvalidID)
+		return ErrInvalidID
 	}
 
 	if err := s.repo.Delete(ctx, id); err != nil {
@@ -141,15 +137,13 @@ func (s *service) Update(ctx context.Context, id uuid.UUID, input *UpdateProduct
 	start := time.Now()
 
 	if id == uuid.Nil {
-		err := fmt.Errorf("%s: invalid id", op)
-		logError(s.log, op, err)
-		return err
+		logError(s.log, op, ErrInvalidID)
+		return ErrInvalidID
 	}
 
 	if input == nil {
-		err := fmt.Errorf("%s: input is empty", op)
-		logError(s.log, op, err)
-		return err
+		logError(s.log, op, ErrNilInput)
+		return ErrNilInput
 	}
 
 	s.log.Info("update product started", "op", op, "id", id)
@@ -182,15 +176,14 @@ func (s *service) Update(ctx context.Context, id uuid.UUID, input *UpdateProduct
 		changed ++
 	}
 
-	if input.DelilveryDays != nil {
-		existing.DeliveryDays = *input.DelilveryDays
+	if input.DeliveryDays != nil {
+		existing.DeliveryDays = *input.DeliveryDays
 		changed ++
 	}
 
 	if changed == 0 {
-		err := ErrEmptyUpdate
-		logError(s.log, op, err)
-		return err
+		logError(s.log, op, ErrEmptyUpdate)
+		return ErrEmptyUpdate
 	}
 
 	existing.UpdatedAt = time.Now()

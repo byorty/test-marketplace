@@ -141,9 +141,9 @@ func (r *Repository) List(ctx context.Context, filter domain.ListFilter) (*domai
 		return nil, fmt.Errorf("%s: find: %w", op, err)
 	}
 
-	items := make([]domain.Product, 0, len(models))
+	items := make([]*domain.Product, 0, len(models))
 	for _, m := range models {
-		items = append(items, *toDomain(m))
+		items = append(items, toDomain(m))
 	}
 
 	return &domain.ProductList{

@@ -13,6 +13,6 @@ type UpdateProduct struct {
 	Description *string
 	Category *string
 	Price *int64
-	DelilveryDays *int
+	DeliveryDays *int
 }
 
