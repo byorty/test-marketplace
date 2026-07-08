@@ -28,7 +28,7 @@ func toUpdateInput(req api.ProductUpdateRequest) *s.UpdateProduct {
 	}
 
 	if req.DeliveryDays != nil {
-		update.DelilveryDays = req.DeliveryDays
+		update.DeliveryDays = req.DeliveryDays
 	}
 
 	if req.Category != nil {
@@ -59,7 +59,7 @@ func toProductList(list *domain.ProductList) api.ProductListResponse {
 	items := make([]api.ProductResponse, len(list.Items))
 
 	for i, p := range list.Items {
-		items[i] = toResponse(&p)
+		items[i] = toResponse(p)
 	}
 
 	return api.ProductListResponse{
