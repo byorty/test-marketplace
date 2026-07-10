@@ -21,7 +21,7 @@ func mapCreateError(log *slog.Logger, err error) api.CreateProductResponseObject
 	switch {
 	case errors.Is(err, service.ErrInvalidInput):
 		return api.CreateProduct400JSONResponse(
-			errorResponse("validation_errror", err.Error()),
+			errorResponse("validation_error", err.Error()),
 		)
 		
 	default:
@@ -44,7 +44,7 @@ func mapGetError(log *slog.Logger, err error) api.GetByIDResponseObject {
 		log.Error("get product failed", slog.Any("error", err))
 
 		return api.GetByID500JSONResponse(
-			errorResponse("internal error", http.StatusText(http.StatusInternalServerError)),
+			errorResponse("internal_error", http.StatusText(http.StatusInternalServerError)),
 		)
 	}
 }
