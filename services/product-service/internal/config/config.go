@@ -12,6 +12,7 @@ type Config struct {
     HTTP HTTPConfig `yaml:"http"`
     Postgres PostgresConfig `yaml:"postgres"`
     Log LogConfig `yaml:"log"`
+	JWT JWT `yaml:"jwt"`
 }
 
 type HTTPConfig struct {
@@ -51,4 +52,9 @@ func MustLoad() *Config {
     }
 
     return &cfg
+}
+
+type JWT struct {
+	Secret string `yaml:"secret"`
+	Issuer string `yaml:"issuer"`
 }

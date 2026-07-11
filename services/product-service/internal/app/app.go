@@ -6,10 +6,12 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/byorty/test-marketplace/services/product-service/internal/auth"
 	"github.com/byorty/test-marketplace/services/product-service/internal/config"
 	"github.com/byorty/test-marketplace/services/product-service/internal/database"
 	httptransport "github.com/byorty/test-marketplace/services/product-service/internal/handler/transport/http"
 	"github.com/byorty/test-marketplace/services/product-service/internal/logger"
+	"github.com/byorty/test-marketplace/services/product-service/internal/rbac"
 	"github.com/byorty/test-marketplace/services/product-service/internal/repository/postgres"
 	"github.com/byorty/test-marketplace/services/product-service/internal/service"
 	"gorm.io/gorm"
@@ -46,7 +48,14 @@ func New() (*App, error) {
 
 	handler := httptransport.New(productService, app.log)
 
-	router := httptransport.NewRouter(handler)
+	jwtManager := auth.New(
+    app.cfg.JWT.Secret,
+    app.cfg.JWT.Issuer,
+	)
+
+	authorizer := rbac.New()
+
+	router := httptransport.NewRouter(handler, jwtManager, authorizer)
 
 	app.server = &http.Server{
 		Addr: fmt.Sprintf("%s:%d", app.cfg.HTTP.Host, app.cfg.HTTP.Port),
