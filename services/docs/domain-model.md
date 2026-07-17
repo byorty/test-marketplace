@@ -10,7 +10,7 @@
 - created_at: time.Time
 - updated_at: time.Time
 
-# Order:
+# Orders:
 
 - id: UUID
 - user_ID: UUID
@@ -19,7 +19,7 @@
 - createdAt: time.Time
 - delivery_date: time.Time
 
-# OrderItem:
+# OrderItems:
 
 - id: UUID
 - order_ID: UUID
@@ -28,16 +28,7 @@
 - product_price: int64
 - quantity: int
 
-# Cart:
+# CartItems:
 
-- id: UUID
-- user_ID: UUID
-- created_at: time.Time
-- updated_at: time.Time
-
-# CartItem:
-
-- id: UUID
-- cart_ID: UUID
 - product_ID: UUID
 - quantity: int
