@@ -1,0 +1,332 @@
+openapi: 3.1.0
+
+info:
+  title: Order service API
+  description: "Микросервис заказов для маркетплейса"
+  version: 1.0.0
+  contact:
+    name: Полина Соломонова
+    email: snoomew@mail.ru
+
+tags:
+  - name: Cart
+  - name: Orders
+
+paths:
+  /cart/items:
+    post:
+      tags:
+        - Cart
+
+      security:
+        - bearerAuth: []
+
+      summary: Добавление в корзину
+      operationId: AddToCart
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddToCartRequest"
+
+      responses:
+        "201":
+          description: Товар добавлен в корзину
+
+        "400":
+          description: Неверные параметры
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Не авторизован
+
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /cart:
+    get:
+      tags:
+        - Cart
+
+      summary: Просмотр текущей корзины
+      operationId: GetCart
+      security:
+        - bearerAuth: []
+
+      responses:
+        "200":
+          description: Текущая корзина
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+
+        "401":
+          description: Не авторизован
+
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /cart/items/{product_id}:
+    delete:
+      tags:
+        - Cart
+
+      summary: Удаление товара из корзины
+      operationId: RemoveFromCart
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+
+      responses:
+        "204":
+          description: Товар удален
+
+        "404":
+          description: Товар не найден
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Не авторизован
+
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /orders:
+    post:
+      tags:
+        - Orders
+
+      summary: Оформление заказа
+      operationId: CreateOrder
+      security:
+        - bearerAuth: []
+
+      responses:
+        "201":
+          description: Заказ оформлен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateOrderResponse"
+
+        "400":
+          description: Корзина пустая
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Не авторизован
+
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /orders/{id}:
+    get:
+      tags:
+        - Orders
+
+      summary: Просмотр заказа
+      operationId: GetOrderByID
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+
+      responses:
+        "200":
+          description: Заказ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+        "404":
+          description: Заказ не найден
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+        "401":
+          description: Не авторизован
+
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AddToCartRequest:
+      type: object
+      required:
+        - product_id
+        - quantity
+      properties:
+        product_id:
+          type: string
+          format: uuid
+
+        quantity:
+          type: integer
+          format: int32
+          minimum: 1
+
+    Cart:
+      type: object
+      required:
+        - items
+        - total_price
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartItem"
+        total_price:
+          type: integer
+          format: int64
+
+    CartItem:
+      type: object
+      required:
+        - product_id
+        - quantity
+      properties:
+        product_id:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          format: int32
+
+    CreateOrderResponse:
+      type: object
+      required:
+        - id
+        - status
+        - delivery_date
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        delivery_date:
+          type: string
+          format: date-time
+
+    Order:
+      type: object
+      required:
+        - id
+        - status
+        - total_price
+        - created_at
+        - delivery_date
+        - items
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        total_price:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+        delivery_date:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+
+    OrderItem:
+      type: object
+      required:
+        - product_id
+        - product_name
+        - product_price
+        - quantity
+      properties:
+        product_id:
+          type: string
+          format: uuid
+        product_name:
+          type: string
+        product_price:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+          format: int32
+
+    OrderStatus:
+      type: string
+      enum:
+        - CREATED
+        - PAID
+        - DELIVERING
+        - DELIVERED
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
