@@ -223,9 +223,17 @@ components:
     Cart:
       type: object
       required:
+        - id
+        - user_id
         - items
         - total_price
       properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
         items:
           type: array
           items:
@@ -238,11 +246,18 @@ components:
       type: object
       required:
         - product_id
+        - product_name
+        - product_price
         - quantity
       properties:
         product_id:
           type: string
           format: uuid
+        product_name:
+          type: string
+        product_price:
+          type: integer
+          format: int64
         quantity:
           type: integer
           format: int32
@@ -251,10 +266,14 @@ components:
       type: object
       required:
         - id
+        - user_id
         - status
         - delivery_date
       properties:
         id:
+          type: string
+          format: uuid
+        user_id:
           type: string
           format: uuid
         status:
