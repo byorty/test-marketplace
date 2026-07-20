@@ -17,7 +17,3 @@ type ProductModel struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
-
-func (ProductModel) TableName() string {
-	return "products"
-}
