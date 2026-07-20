@@ -93,7 +93,7 @@ func (r *Repository) CreateOrder(ctx context.Context, order *order.Order) error 
 	return nil
 }
 
-func (r *Repository) CreateOrderItems(ctx context.Context, items []*order.OrderItem) error {
+func (r *Repository) CreateOrderItems(ctx context.Context, items []order.OrderItem) error {
 	const op = "Repository.CreateOrderItems"
 
 	models := make([]OrderItemModel, 0, len(items))
@@ -142,4 +142,14 @@ func (r *Repository) GetOrderItems(ctx context.Context, orderID uuid.UUID) ([]or
 	}
 
 	return items, nil
+}
+
+func (r *Repository) Transaction(ctx context.Context, fn func(repo order.Repository) error) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txRepo := &Repository{
+			db: tx,
+		}
+
+		return fn(txRepo)
+	})
 }

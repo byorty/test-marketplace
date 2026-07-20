@@ -8,7 +8,7 @@ import (
 
 type Repository interface {
 	//Cart
-	AddToCart(ctx context.Context, items *CartItem) error
+	AddToCart(ctx context.Context, item *CartItem) error
 	GetCart(ctx context.Context, userID uuid.UUID) ([]CartItem, error)
 	RemoveFromCart(ctx context.Context, userID uuid.UUID, productID uuid.UUID) error
 	ClearCart(ctx context.Context, userID uuid.UUID) error
@@ -17,4 +17,6 @@ type Repository interface {
 	CreateOrderItems(ctx context.Context, items []OrderItem) error
 	GetOrderByID(ctx context.Context, id uuid.UUID) (*Order, error)
 	GetOrderItems(ctx context.Context, orderID uuid.UUID) ([]OrderItem, error)
+
+	Transaction(ctx context.Context, fn func(repo Repository) error) error
 }

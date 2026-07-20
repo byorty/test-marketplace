@@ -25,8 +25,8 @@ func newTestLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
-func newTestService(repo domain.Repository) Service {
-	return &service{
+func newTestService(repo domain.Repository) *Service {
+	return &Service{
 		repo: repo,
 		log: newTestLogger(),
 	}
