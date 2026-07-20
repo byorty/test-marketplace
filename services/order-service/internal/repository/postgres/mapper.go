@@ -24,7 +24,7 @@ func orderToDomain(p OrderModel) *order.Order {
 	}
 }
 
-func orderItemToModel(d *order.OrderItem) OrderItemModel {
+func orderItemToModel(d order.OrderItem) OrderItemModel {
 	return OrderItemModel{
 		ID: d.ID,
 		OrderID: d.OrderID,

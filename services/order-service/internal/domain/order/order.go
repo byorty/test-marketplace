@@ -6,10 +6,18 @@ import (
 	"github.com/google/uuid"
 )
 
+type Status string
+
+const (
+	StatusCreated Status = "CREATED"
+	StatusPaid Status = "PAID"
+	StatusDelivering Status = "DELIVERING"
+	StatusDelivered Status = "DELIVERED"
+)
 type Order struct {
 	ID uuid.UUID
 	UserID uuid.UUID
-	Status string
+	Status Status
 	Total int64
 	CreatedAt time.Time
 	DeliveryDate time.Time

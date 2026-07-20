@@ -245,19 +245,20 @@ components:
     CartItem:
       type: object
       required:
+        - id
+        - user_id
         - product_id
-        - product_name
-        - product_price
         - quantity
       properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
         product_id:
           type: string
           format: uuid
-        product_name:
-          type: string
-        product_price:
-          type: integer
-          format: int64
         quantity:
           type: integer
           format: int32

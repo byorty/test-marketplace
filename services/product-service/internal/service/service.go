@@ -10,23 +10,23 @@ import (
 	"github.com/google/uuid"
 )
 
-type service struct {
+type Service struct {
 	repo domain.Repository
 	log *slog.Logger
 }
 
-func New(log *slog.Logger, repo domain.Repository) Service {
-	return &service{
+func New(log *slog.Logger, repo domain.Repository) *Service {
+	return &Service{
 		repo: repo,
 		log: log.With(slog.String("layer", "service")),
 	}
 }
 
 func logError(log *slog.Logger, op string, err error) {
-	log.Error("operatoin failed", slog.String("op", op), slog.Any("error", err))
+	log.Error("operation failed", slog.String("op", op), slog.Any("error", err))
 }
 
-func (s *service) Create(ctx context.Context, input *CreateProduct) (*domain.Product, error) {
+func (s *Service) Create(ctx context.Context, input *CreateProduct) (*domain.Product, error) {
 	const op = "Service.Create"
 
 	start := time.Now()
@@ -66,7 +66,7 @@ func (s *service) Create(ctx context.Context, input *CreateProduct) (*domain.Pro
 	return p, nil
 }
 
-func (s *service) GetByID(ctx context.Context, id uuid.UUID) (*domain.Product, error) {
+func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*domain.Product, error) {
 	const op = "Service.GetByID"
 
 	s.log.Debug("get product", "op", op, "id", id)
@@ -85,7 +85,7 @@ func (s *service) GetByID(ctx context.Context, id uuid.UUID) (*domain.Product, e
 	return p, nil
 }
 
-func (s *service) Delete(ctx context.Context, id uuid.UUID) error {
+func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	const op = "Service.Delete"
 
 	start := time.Now()
@@ -107,7 +107,7 @@ func (s *service) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (s *service) List(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
+func (s *Service) List(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
 	const op = "Service.List"
 
 	s.log.Debug("list products", "op", op, "filter", filter)
@@ -131,7 +131,7 @@ func (s *service) List(ctx context.Context, filter domain.ListFilter) (*domain.P
 	return res, nil
 }
 
-func (s *service) Update(ctx context.Context, id uuid.UUID, input *UpdateProduct) error {
+func (s *Service) Update(ctx context.Context, id uuid.UUID, input *UpdateProduct) error {
 	const op = "Service.Update"
 
 	start := time.Now()

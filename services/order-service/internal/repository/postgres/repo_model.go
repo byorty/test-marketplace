@@ -3,13 +3,14 @@ package postgres
 import (
 	"time"
 
+	"github.com/byorty/test-marketplace/services/order-service/internal/domain/order"
 	"github.com/google/uuid"
 )
 
 type OrderModel struct {
 	ID uuid.UUID `gorm:"type:uuid;primaryKey"`
 	UserID uuid.UUID
-	Status string
+	Status order.Status 
 	Total int64
 	CreatedAt time.Time
 	DeliveryDate time.Time
