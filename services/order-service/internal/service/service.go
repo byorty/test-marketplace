@@ -71,7 +71,7 @@ func (s *Service) AddToCart(ctx context.Context, item *order.CartItem) error {
 	return nil
 }
 
-func (s *Service) GetCart(ctx context.Context, userID uuid.UUID) ([]order.CartItem, error) {
+func (s *Service) GetCart(ctx context.Context, userID uuid.UUID) (*order.Cart, error) {
 	const op = "Service.GetCart"
 
 	s.log.Debug("get cart", "op", op, "user_id", userID)
@@ -81,13 +81,16 @@ func (s *Service) GetCart(ctx context.Context, userID uuid.UUID) ([]order.CartIt
 		return nil, ErrInvalidUserID 
 	}
 
-	cart, err := s.repo.GetCart(ctx, userID)
+	items, err := s.repo.GetCart(ctx, userID)
 	if err != nil {
 		logError(s.log, op, err)
 		return nil, fmt.Errorf("%s: get cart: %w", op, err)
 	}
 
-	return cart, nil
+	return &order.Cart{
+		Items: items,
+		TotalPrice: 0,
+	}, nil
 }
 
 func (s *Service) RemoveFromCart(ctx context.Context, userID uuid.UUID, productID uuid.UUID) error {

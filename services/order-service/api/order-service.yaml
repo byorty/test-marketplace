@@ -44,6 +44,10 @@ paths:
 
         "401":
           description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
         "500":
           description: Внутренняя ошибка сервера
@@ -72,6 +76,10 @@ paths:
 
         "401":
           description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
         "500":
           description: Внутренняя ошибка сервера
@@ -111,6 +119,10 @@ paths:
 
         "401":
           description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
         "500":
           description: Внутренняя ошибка сервера
@@ -146,6 +158,10 @@ paths:
 
         "401":
           description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
         "500":
           description: Внутренняя ошибка сервера
@@ -189,6 +205,10 @@ paths:
 
         "401":
           description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
         "500":
           description: Внутренняя ошибка сервера

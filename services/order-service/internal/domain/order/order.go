@@ -39,3 +39,8 @@ type CartItem struct {
 	ProductID uuid.UUID
 	Quantity int
 }
+
+type Cart struct {
+	Items      []CartItem
+	TotalPrice int64
+}
