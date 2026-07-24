@@ -1,0 +1,8 @@
+package: api
+
+generate:
+  models: true
+  chi-server: true
+  strict-server: true
+
+output: ./services/order-service/internal/generated/openapi/api.gen.go
