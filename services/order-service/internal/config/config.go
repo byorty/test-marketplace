@@ -9,14 +9,14 @@ import (
 )
 
 type ProductService struct {
-	URL string `env:"PRODUCT_SERVICE_URL" env-required:"true"`
+	URL string `yaml:"url"`
 }
 type Config struct {
     HTTP HTTPConfig `yaml:"http"`
     Postgres PostgresConfig `yaml:"postgres"`
     Log LogConfig `yaml:"log"`
 	JWT JWT `yaml:"jwt"`
-	ProductService ProductService
+	ProductService ProductService `yaml:"product_service"`
 }
 
 type HTTPConfig struct {

@@ -1,3 +1,5 @@
 jwt:
   secret: "super-secret-key"
   issuer: "marketplace"
+
+product_service_url: "http://localhost:8080"

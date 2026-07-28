@@ -24,6 +24,11 @@ func mapAddToCartError(log *slog.Logger, err error) api.AddToCartResponseObject 
 			errorResponse("validation_error", err.Error()),
 		)
 
+	case errors.Is(err, service.ErrProductNotFound):
+   		return api.AddToCart404JSONResponse(
+        errorResponse("product_not_found", err.Error()),
+		)
+
 	default:
 		log.Error("add product to cart failed", 
 		slog.String("op", "Handler.AddToCart"),

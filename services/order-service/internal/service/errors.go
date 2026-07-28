@@ -11,4 +11,5 @@ var (
 	ErrInvalidInput = errors.New("invalid input")
 	ErrInvalidPrice = errors.New("invalid price")
 	ErrEmptyOrder = errors.New("order is empty")
+	ErrProductNotFound = errors.New("product not found")
 )

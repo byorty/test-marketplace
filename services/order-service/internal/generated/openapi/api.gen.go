@@ -518,6 +518,20 @@ func (response AddToCart401JSONResponse) VisitAddToCartResponse(w http.ResponseW
 	return err
 }
 
+type AddToCart404JSONResponse ErrorResponse
+
+func (response AddToCart404JSONResponse) VisitAddToCartResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type AddToCart500JSONResponse ErrorResponse
 
 func (response AddToCart500JSONResponse) VisitAddToCartResponse(w http.ResponseWriter) error {
