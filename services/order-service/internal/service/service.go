@@ -2,11 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
-	"github.com/byorty/test-marketplace/services/order-service/internal/client/product"
+	pr "github.com/byorty/test-marketplace/services/order-service/internal/client/product"
 	"github.com/byorty/test-marketplace/services/order-service/internal/domain/order"
 	"github.com/google/uuid"
 )
@@ -15,10 +16,10 @@ type Service struct {
 	repo order.Repository
 	log *slog.Logger
 
-	productClient product.Client
+	productClient pr.Client
 }
 
-func New(repo order.Repository, log *slog.Logger, productClient product.Client) *Service {
+func New(repo order.Repository, log *slog.Logger, productClient pr.Client) *Service {
 	return &Service{
 		repo: repo,
 		log: log.With(slog.String("layer", "service")),
@@ -59,6 +60,16 @@ func (s *Service) AddToCart(ctx context.Context, item *order.CartItem) error {
 	if item.Quantity <= 0 {
 		logError(s.log, op, ErrInvalidQuantity)
 		return ErrInvalidQuantity
+	}
+
+	_, err := s.productClient.GetProduct(ctx, item.ProductID)
+	if err != nil {
+		if errors.Is(err, pr.ErrProductNotFound) {
+			logError(s.log, op, ErrProductNotFound)
+			return ErrProductNotFound
+		}
+		logError(s.log, op, err)
+		return fmt.Errorf("%s: get product: %w", op, err)
 	}
 
 	if err := s.repo.AddToCart(ctx, item); err != nil {
@@ -213,11 +224,16 @@ func (s *Service) CreateOrder(ctx context.Context, userID uuid.UUID) (*order.Ord
 
 	orderID := uuid.New()
 
-	deliveryDays := 0
+	var deliveryDays int32
 
 	for _, cartItem := range cart {
 
-		product, err := s.productClient.GetByID(ctx, cartItem.ProductID)
+		product, err := s.productClient.GetProduct(ctx, cartItem.ProductID)
+
+		if errors.Is(err, pr.ErrProductNotFound) {
+			logError(s.log, op, err)
+			return nil, ErrProductNotFound
+		}
 
 		if err != nil {
 			logError(s.log, op, err)
@@ -250,15 +266,15 @@ func (s *Service) CreateOrder(ctx context.Context, userID uuid.UUID) (*order.Ord
 	}
 
 	err = s.repo.Transaction(ctx, func(repo order.Repository) error {
-		if err := s.repo.CreateOrder(ctx, o); err != nil {
+		if err := repo.CreateOrder(ctx, o); err != nil {
 			return err
 		}
 
-		if err := s.repo.CreateOrderItems(ctx, items); err != nil {
+		if err := repo.CreateOrderItems(ctx, items); err != nil {
 			return err
 		}
 
-		if err := s.repo.ClearCart(ctx, userID); err != nil {
+		if err := repo.ClearCart(ctx, userID); err != nil {
 			return err
 		}
 
@@ -271,7 +287,7 @@ func (s *Service) CreateOrder(ctx context.Context, userID uuid.UUID) (*order.Ord
 	}
 
 	s.log.Info("create order success", "op", op, 
-	"order_id", orderID, "user_id", userID,
+	"order_id", orderID, "user_id", userID, "total", total,
 	"duration_ms", time.Since(start).Milliseconds())
 
 	return o, nil
