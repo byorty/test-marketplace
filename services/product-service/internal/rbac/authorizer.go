@@ -1,28 +1,44 @@
 package rbac
 
-type Authorizer struct{}
+import (
+	"errors"
 
-func New() *Authorizer {
-	return &Authorizer{}
+	"github.com/casbin/casbin/v2"
+)
+
+var ErrAccessDenied = errors.New("access denied")
+
+type Authorizer struct {
+	enforcer *casbin.Enforcer
 }
 
-func (a *Authorizer) Authorize(role string, method string, path string) bool {
-	for _, permission := range Permissions {
-
-		if permission.Method != method {
-			continue
-		}
-
-		if permission.Path != path {
-			continue
-		}
-
-		for _, allowedRole := range permission.Roles {
-			if allowedRole == role {
-				return true
-			}
-		}
-		return false
+func New(enforcer *casbin.Enforcer) *Authorizer {
+	return &Authorizer{
+		enforcer: enforcer,
 	}
-	return false
+}
+
+func NewEnforcer() (*casbin.Enforcer, error) {
+	return casbin.NewEnforcer(
+		"internal/authorization/model.conf",
+		"internal/authorization/policy.csv",
+	)
+}
+
+func (a *Authorizer) Authorize(role, resource, action string) error {
+
+	ok, err := a.enforcer.Enforce(role, resource, action)
+	if err != nil {
+		return err
+	}
+
+	if !ok {
+		return ErrAccessDenied
+	}
+
+	return nil
+}
+
+func IsAccessDenied(err error) bool {
+	return errors.Is(err, ErrAccessDenied)
 }

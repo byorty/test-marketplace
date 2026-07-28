@@ -689,6 +689,20 @@ func (response GetOrderByID401JSONResponse) VisitGetOrderByIDResponse(w http.Res
 	return err
 }
 
+type GetOrderByID403JSONResponse ErrorResponse
+
+func (response GetOrderByID403JSONResponse) VisitGetOrderByIDResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetOrderByID404JSONResponse ErrorResponse
 
 func (response GetOrderByID404JSONResponse) VisitGetOrderByIDResponse(w http.ResponseWriter) error {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/byorty/test-marketplace/services/order-service/internal/domain/order"
 	api "github.com/byorty/test-marketplace/services/order-service/internal/generated/openapi"
+	"github.com/byorty/test-marketplace/services/order-service/internal/rbac"
 	"github.com/google/uuid"
 )
 
@@ -21,11 +22,13 @@ type OrderService interface {
 type Handler struct {
 	service OrderService
 	log *slog.Logger
+	authorizer *rbac.Authorizer
 }
 
-func New(service OrderService, log *slog.Logger) api.StrictServerInterface {
+func New(service OrderService, log *slog.Logger, authorizer *rbac.Authorizer) api.StrictServerInterface {
 	return &Handler{
 		service: service,
 		log: log,
+		authorizer: authorizer,
 	}
 }
