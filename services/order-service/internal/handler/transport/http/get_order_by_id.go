@@ -12,7 +12,7 @@ func (h *Handler) GetOrderByID(
 	req api.GetOrderByIDRequestObject,
 ) (api.GetOrderByIDResponseObject, error) {
 
-	_, ok := auth.ClaimsFromContext(ctx)
+	claims, ok := auth.ClaimsFromContext(ctx)
 	if !ok {
 		return api.GetOrderByID401JSONResponse(
 			errorResponse("unauthorized", "missing jwt claims"),
@@ -22,6 +22,13 @@ func (h *Handler) GetOrderByID(
 	order, err := h.service.GetOrderByID(ctx, req.Id)
 	if err != nil {
 		return mapGetOrderByIDError(h.log, err), nil
+	}
+
+	if err := h.authorizer.CanViewOrder(claims, order); err != nil {
+
+		return api.GetOrderByID403JSONResponse(
+			errorResponse("forbidden", err.Error()),
+		), nil
 	}
 
 	return api.GetOrderByID200JSONResponse(

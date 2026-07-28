@@ -3,10 +3,10 @@ package http
 import (
 	"net/http"
 
-	"github.com/byorty/test-marketplace/services/product-service/internal/auth"
-	api "github.com/byorty/test-marketplace/services/product-service/internal/generated"
-	"github.com/byorty/test-marketplace/services/product-service/internal/handler/transport/http/middlwr"
-	"github.com/byorty/test-marketplace/services/product-service/internal/rbac"
+	"github.com/byorty/test-marketplace/services/order-service/internal/auth"
+	api "github.com/byorty/test-marketplace/services/order-service/internal/generated/openapi"
+	"github.com/byorty/test-marketplace/services/order-service/internal/handler/transport/http/middlwr"
+	"github.com/byorty/test-marketplace/services/order-service/internal/rbac"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )

@@ -48,14 +48,19 @@ func New() (*App, error) {
 
 	handler := httptransport.New(productService, app.log)
 
-	jwtManager := auth.New(
+	validator := auth.NewValidator(
     app.cfg.JWT.Secret,
     app.cfg.JWT.Issuer,
 	)
 
-	authorizer := rbac.New()
+	enforcer, err := rbac.NewEnforcer()
+	if err != nil {
+    	return nil, err
+	}
 
-	router := httptransport.NewRouter(handler, jwtManager, authorizer)
+	authorizer := rbac.New(enforcer)
+
+	router := httptransport.NewRouter(handler, validator, authorizer)
 
 	app.server = &http.Server{
 		Addr: fmt.Sprintf("%s:%d", app.cfg.HTTP.Host, app.cfg.HTTP.Port),

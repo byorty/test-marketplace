@@ -1,4 +1,4 @@
-package middleware
+package middlwr
 
 import (
 	"net/http"
@@ -11,7 +11,7 @@ type Auth struct {
 	validator *auth.Validator
 }
 
-func New(validator *auth.Validator) *Auth {
+func NewAuth(validator *auth.Validator) *Auth {
 	return &Auth{
 		validator: validator,
 	}

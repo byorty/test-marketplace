@@ -1,44 +1,43 @@
 package auth
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type Manager struct {
+type Validator struct {
 	secret []byte
 	issuer string
 }
 
-func New(secret, issuer string) *Manager {
-	return &Manager{
+func NewValidator(secret string, issuer string) *Validator {
+	return &Validator{
 		secret: []byte(secret),
 		issuer: issuer,
 	}
 }
 
-func (m *Manager) Parse(tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(
-		tokenString, &Claims{},
-		func(t *jwt.Token) (any, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("%w: %v", ErrInvalidToken, t.Header["alg"])
-			} 
+func (v *Validator) Parse(tokenString string) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (any, error) {
 
-			return m.secret, nil
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, errors.New("unexpected signing method")
+			}
+			return v.secret, nil
 		},
-		jwt.WithIssuer(m.issuer),
+
+		jwt.WithIssuer(v.issuer),
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("parse jwt: %w", err)
+		return nil, err
 	}
 
 	claims, ok := token.Claims.(*Claims)
 	if !ok || !token.Valid {
-		return nil, ErrInvalidToken
-	} 
+		return nil, errors.New("invalid token")
+	}
 
 	return claims, nil
 }
