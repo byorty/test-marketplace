@@ -8,17 +8,12 @@ import (
 	"github.com/byorty/test-marketplace/services/product-service/internal/handler/transport/http/middlwr"
 	"github.com/byorty/test-marketplace/services/product-service/internal/rbac"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(handler api.StrictServerInterface, validator *auth.Validator, authorizer *rbac.Authorizer) http.Handler {
+func NewRouter(handler *Handler, jwt *auth.Validator, authorizer *rbac.Authorizer) http.Handler {
 	router := chi.NewRouter()
 
-	router.Use(middleware.RequestID)
-	router.Use(middleware.Logger)
-	router.Use(middleware.Recoverer)
-
-	router.Use(middlwr.NewAuth(validator).Handler)
+	router.Use(middlwr.NewAuth(jwt).Handler)
 	router.Use(middlwr.NewAuthorization(authorizer).Handler)
 
 	strictHandler := api.NewStrictHandler(handler, nil)
