@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -8,16 +9,24 @@ import (
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
+type ProductService struct {
+	URL string `yaml:"url"`
+}
 type Config struct {
     HTTP HTTPConfig `yaml:"http"`
     Postgres PostgresConfig `yaml:"postgres"`
     Log LogConfig `yaml:"log"`
 	JWT JWT `yaml:"jwt"`
+	ProductService ProductService `yaml:"product_service"`
 }
 
 type HTTPConfig struct {
     Host string `yaml:"host" env:"HTTP_HOST" env-required:"true"`
     Port int `yaml:"port" env:"HTTP_PORT" env-default:"8080"`
+}
+
+func (h HTTPConfig) Address() string {
+    return fmt.Sprintf("%s:%d", h.Host, h.Port)
 }
 
 type PostgresConfig struct {
