@@ -1,0 +1,8 @@
+postgres:
+  host: postgres
+
+jwt:
+  secret: "super-secret-key"
+  issuer: "marketplace"
+
+product_service_url: "http://product-service:8080"
