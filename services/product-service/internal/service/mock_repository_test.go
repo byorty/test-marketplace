@@ -8,6 +8,7 @@ import (
 )
 
 type MockRepository struct {
+	
 	CreateFunc func(context.Context, *domain.Product) error
 	GetByIDFunc func(context.Context, uuid.UUID) (*domain.Product, error)
 	UpdateFunc func(context.Context, *domain.Product) error

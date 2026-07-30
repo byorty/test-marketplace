@@ -36,16 +36,17 @@ func (s *Service) AddToCart(ctx context.Context, item *order.CartItem) error {
 	const op = "Service.AddToCart"
 
 	start := time.Now()
-
-	s.log.Info("add to cart started", "op", op,
-	"user_id", item.UserID,
-	"product_id", item.ProductID,
-	"quantiy", item.Quantity)
-
+	
 	if item == nil {
 		logError(s.log, op, ErrInvalidInput)
 		return ErrInvalidInput
 	}
+
+	s.log.Info("add to cart started", "op", op,
+	"user_id", item.UserID,
+	"product_id", item.ProductID,
+	"quantity", item.Quantity)
+
 
 	if item.UserID == uuid.Nil {
 		logError(s.log, op, ErrInvalidUserID)
@@ -53,8 +54,8 @@ func (s *Service) AddToCart(ctx context.Context, item *order.CartItem) error {
 	}
 
 	if item.ProductID == uuid.Nil {
-		logError(s.log, op, ErrInvaliProductdID)
-		return ErrInvaliProductdID
+		logError(s.log, op, ErrInvalidProductdID)
+		return ErrInvalidProductdID
 	}
 
 	if item.Quantity <= 0 {
@@ -62,7 +63,7 @@ func (s *Service) AddToCart(ctx context.Context, item *order.CartItem) error {
 		return ErrInvalidQuantity
 	}
 
-	_, err := s.productClient.GetProduct(ctx, item.ProductID)
+	product, err := s.productClient.GetProduct(ctx, item.ProductID)
 	if err != nil {
 		if errors.Is(err, pr.ErrProductNotFound) {
 			logError(s.log, op, ErrProductNotFound)
@@ -72,12 +73,20 @@ func (s *Service) AddToCart(ctx context.Context, item *order.CartItem) error {
 		return fmt.Errorf("%s: get product: %w", op, err)
 	}
 
+	if product == nil {
+		logError(s.log, op, ErrProductNotFound)
+		return ErrProductNotFound
+	}
+
 	if err := s.repo.AddToCart(ctx, item); err != nil {
 		logError(s.log, op, err)
 		return fmt.Errorf("%s: add to cart: %w", op, err)
 	}
 
-	s.log.Info("add to cart success", "op", op, "item", item, "duration_ms", time.Since(start).Milliseconds())
+	s.log.Info("add to cart success", "op", op,
+		"user_id", item.UserID, "product_id", item.ProductID,
+	 	"duration_ms", time.Since(start).Milliseconds(),
+	)
 
 	return nil
 }
@@ -98,9 +107,21 @@ func (s *Service) GetCart(ctx context.Context, userID uuid.UUID) (*order.Cart, e
 		return nil, fmt.Errorf("%s: get cart: %w", op, err)
 	}
 
+	total := int64(0)
+
+	for _, item := range items {
+		product, err := s.productClient.GetProduct(ctx, item.ProductID)
+		if err != nil {
+			logError(s.log, op, err)
+			return nil, fmt.Errorf("%s: get product: %w", op, err)
+		}
+
+		total += product.Price *int64(item.Quantity)
+	}
+
 	return &order.Cart{
 		Items: items,
-		TotalPrice: 0,
+		TotalPrice: total,
 	}, nil
 }
 
@@ -117,8 +138,8 @@ func (s *Service) RemoveFromCart(ctx context.Context, userID uuid.UUID, productI
 	}
 
 	if productID == uuid.Nil {
-		logError(s.log, op, ErrInvaliProductdID)
-		return ErrInvaliProductdID
+		logError(s.log, op, ErrInvalidProductdID)
+		return ErrInvalidProductdID
 	}
 
 	if err := s.repo.RemoveFromCart(ctx, userID, productID); err != nil {
@@ -230,9 +251,11 @@ func (s *Service) CreateOrder(ctx context.Context, userID uuid.UUID) (*order.Ord
 
 		product, err := s.productClient.GetProduct(ctx, cartItem.ProductID)
 
-		if errors.Is(err, pr.ErrProductNotFound) {
-			logError(s.log, op, err)
-			return nil, ErrProductNotFound
+		if err != nil {
+			if errors.Is(err, pr.ErrProductNotFound) {
+				logError(s.log, op, err)
+				return nil, ErrProductNotFound
+			}
 		}
 
 		if err != nil {
@@ -292,3 +315,4 @@ func (s *Service) CreateOrder(ctx context.Context, userID uuid.UUID) (*order.Ord
 
 	return o, nil
 }
+
