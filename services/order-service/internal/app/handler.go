@@ -1,7 +1,7 @@
 package app
 
 import (
-	httptransport "github.com/byorty/test-marketplace/services/order-service/internal/handler/transport/http"
+	httptransport "github.com/byorty/test-marketplace/services/order-service/internal/transport"
 	"go.uber.org/fx"
 )
 

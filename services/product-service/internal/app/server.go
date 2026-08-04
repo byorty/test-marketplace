@@ -2,25 +2,25 @@ package app
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 
-	"github.com/byorty/test-marketplace/services/product-service/internal/auth"
+	"github.com/byorty/test-marketplace/services/auth"
 	"github.com/byorty/test-marketplace/services/product-service/internal/config"
-	httptransport "github.com/byorty/test-marketplace/services/product-service/internal/handler/transport/http"
-	"github.com/byorty/test-marketplace/services/product-service/internal/rbac"
+	httptransport "github.com/byorty/test-marketplace/services/product-service/internal/transport"
+	"github.com/byorty/test-marketplace/services/rbac"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 func RunServer(
 	
 	lifecycle fx.Lifecycle,
 
-	handler *httptransport.Handler,
+	handler *httptransport.ProductHandler,
 
 	cfg *config.Config,
 
-	log *slog.Logger,
+	log *zap.Logger,
 
 	jwt *auth.Validator,
 
