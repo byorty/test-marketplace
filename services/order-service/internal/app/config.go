@@ -5,4 +5,4 @@ import (
 	"go.uber.org/fx"
 )
 
-var ConfigModule = fx.Provide(config.MustLoad)
+var ConfigModule = fx.Provide(config.Load)

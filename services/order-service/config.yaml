@@ -1,8 +1,11 @@
 postgres:
   host: postgres
+  port: 5432
+  database: marketplace
+  sslmode: disable
 
 jwt:
-  secret: "super-secret-key"
-  issuer: "marketplace"
+  issuer: marketplace
+  public_key_path: keys/public.pem
 
 product_service_url: "http://product-service:8080"

@@ -3,30 +3,22 @@ package service
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
 	"testing"
 	"time"
 
-	domain "github.com/byorty/test-marketplace/services/product-service/internal/domain/product"
+	"github.com/byorty/test-marketplace/services/product-service/internal/domain"
+	api "github.com/byorty/test-marketplace/services/product-service/internal/generated"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
-func strPtr(s string) *string {
-    return &s
+func newTestLogger() *zap.Logger {
+	return zap.NewNop()
 }
 
-func int64Ptr(i int64) *int64 {
-    return &i
-}
-
-func newTestLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
-}
-
-func newTestService(repo domain.Repository) *Service {
-	return &Service{
+func newTestService(repo *domain.MockProductRepository) *ProductService {
+	return &ProductService{
 		repo: repo,
 		log: newTestLogger(),
 	}
@@ -37,15 +29,15 @@ func TestService_Create(t *testing.T) {
 
 	tests := []struct {
 		name string
-		input *CreateProduct
-		mock *MockRepository
+		input *api.ProductCreateRequest
+		mock *domain.MockProductRepository
 		checkResult func(t *testing.T, p *domain.Product)
 		wantErr error
 	}{
 		{
 			name: "success",
 
-			input: &CreateProduct{
+			input: &api.ProductCreateRequest{
 				Name: "iPhone 17",
 				Description: "Best phone",
 				Category: "Electronics",
@@ -53,7 +45,7 @@ func TestService_Create(t *testing.T) {
 				DeliveryDays: 3,
 			},
 
-			mock: &MockRepository{
+			mock: &domain.MockProductRepository{
 				CreateFunc: func(ctx context.Context, p *domain.Product) error {
 					return nil
 				},
@@ -79,27 +71,27 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "nil input",
 			input: nil,
-			mock: &MockRepository{},
+			mock: &domain.MockProductRepository{},
 			wantErr: ErrNilInput,
 		},
 		{
 			name: "empty name",
-			input: &CreateProduct{
+			input: &api.ProductCreateRequest{
 				Name: "",
 			},
-			mock: &MockRepository{},
+			mock: &domain.MockProductRepository{},
 			wantErr: ErrInvalidProductName,
 		},
 		{
 			name: "repository error",
-			input: &CreateProduct{
+			input: &api.ProductCreateRequest{
 				Name: "iPhone",
 				Description: "Phone",
 				Category: "Electronics",
 				Price: 70000,
 				DeliveryDays: 2,
 			},
-			mock: &MockRepository{
+			mock: &domain.MockProductRepository{
 				CreateFunc: func(ctx context.Context, p *domain.Product) error {
 					return domain.ErrProductNotFound
 				},
@@ -153,7 +145,7 @@ func TestService_GetByID(t *testing.T) {
 	tests := []struct {
 		name string
 		id uuid.UUID
-		mock *MockRepository
+		mock *domain.MockProductRepository
 		wantErr error
 		checkResult func(t *testing.T, p *domain.Product)
 	}{
@@ -162,7 +154,7 @@ func TestService_GetByID(t *testing.T) {
 
 			id: product.ID,
 
-			mock: &MockRepository{
+			mock: &domain.MockProductRepository{
 				GetByIDFunc: func(ctx context.Context, u uuid.UUID) (*domain.Product, error) {
 					return product, nil
 				},
@@ -185,13 +177,13 @@ func TestService_GetByID(t *testing.T) {
 		{
 			name: "invalid id",
 			id: uuid.Nil,
-			mock: &MockRepository{},
+			mock: &domain.MockProductRepository{},
 			wantErr: ErrInvalidID,
 		},
 		{
 			name: "product not found",
 			id: uuid.New(),
-			mock: &MockRepository{
+			mock: &domain.MockProductRepository{
 				GetByIDFunc: func(ctx context.Context, u uuid.UUID) (*domain.Product, error) {
 					return nil, domain.ErrProductNotFound
 				},
@@ -201,7 +193,7 @@ func TestService_GetByID(t *testing.T) {
 		{
 			name: "repository error",
 			id: uuid.New(),
-			mock: &MockRepository{
+			mock: &domain.MockProductRepository{
 				GetByIDFunc: func(ctx context.Context, u uuid.UUID) (*domain.Product, error) {
 					return nil, repoErr
 				},
@@ -260,13 +252,13 @@ func TestService_Delete(t *testing.T) {
 	tests := []struct {
 		name string
 		id uuid.UUID
-		mock *MockRepository
+		mock *domain.MockProductRepository
 		wantErr error
 	}{
 		{
 			name: "success",
 			id: uuid.New(),
-			mock: &MockRepository{
+			mock: &domain.MockProductRepository{
 				DeleteFunc: func(ctx context.Context, u uuid.UUID) error {
 					return nil
 				},
@@ -275,13 +267,13 @@ func TestService_Delete(t *testing.T) {
 		{
 			name: "invalid id",
 			id: uuid.Nil,
-			mock: &MockRepository{},
+			mock: &domain.MockProductRepository{},
 			wantErr: ErrInvalidID,
 		},
 		{
 			name: "product not found",
 			id: uuid.New(),
-			mock: &MockRepository{
+			mock: &domain.MockProductRepository{
 				DeleteFunc: func(ctx context.Context, u uuid.UUID) error {
 					return domain.ErrProductNotFound
 				},
@@ -291,7 +283,7 @@ func TestService_Delete(t *testing.T) {
 		{
 			name: "repository error",
 			id: uuid.New(),
-			mock: &MockRepository{
+			mock: &domain.MockProductRepository{
 				DeleteFunc: func(ctx context.Context, u uuid.UUID) error {
 					return repoErr
 				},
@@ -347,7 +339,7 @@ func TestService_List(t *testing.T) {
 	tests := []struct {
 		name string
 		filter domain.ListFilter
-		mock *MockRepository
+		mock *domain.MockProductRepository
 		wantErr error
 		checkResult func(t *testing.T, result *domain.ProductList)
 	}{
@@ -359,7 +351,7 @@ func TestService_List(t *testing.T) {
 				PageSize: 10,
 			},
 
-			mock: &MockRepository{
+			mock: &domain.MockProductRepository{
 				ListFunc: func(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
 					require.Equal(t, 2, filter.Page)
 					require.Equal(t, 10, filter.PageSize)
@@ -403,7 +395,7 @@ func TestService_List(t *testing.T) {
 				PageSize: 10,
 			},
 
-			mock: &MockRepository{
+			mock: &domain.MockProductRepository{
 				ListFunc: func(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
 					require.Equal(t, 1, filter.Page)
 					require.Equal(t, 10, filter.PageSize)
@@ -420,7 +412,7 @@ func TestService_List(t *testing.T) {
 				PageSize: 0,
 			},
 
-			mock: &MockRepository{
+			mock: &domain.MockProductRepository{
 				ListFunc: func(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
 					require.Equal(t, 1, filter.Page)
 					require.Equal(t, 20, filter.PageSize)
@@ -437,7 +429,7 @@ func TestService_List(t *testing.T) {
 				PageSize: 0,
 			},
 
-			mock: &MockRepository{
+			mock: &domain.MockProductRepository{
 				ListFunc: func(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
 					require.Equal(t, 1, filter.Page)
 					require.Equal(t, 20, filter.PageSize)
@@ -454,7 +446,7 @@ func TestService_List(t *testing.T) {
 				PageSize: 20,
 			},
 
-			mock: &MockRepository{
+			mock: &domain.MockProductRepository{
 				ListFunc: func(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
 					return nil, repoErr
 				},
@@ -506,6 +498,8 @@ func TestService_List(t *testing.T) {
 
 func TestService_Update(t *testing.T) {
 	validID := uuid.New()
+	name := "iPhone 17 Pro Max"
+	price := int64(150000)
 
 	t.Parallel()
 
@@ -528,8 +522,8 @@ func TestService_Update(t *testing.T) {
 	tests := []struct {
 		name string
 		id uuid.UUID
-		input *UpdateProduct
-		mock *MockRepository
+		input *api.ProductUpdateRequest
+		mock *domain.MockProductRepository
 		wantErr error
 		checkResult func(t *testing.T, p *domain.Product)
 	}{
@@ -538,17 +532,17 @@ func TestService_Update(t *testing.T) {
 
 			id: validID,
 
-			input: &UpdateProduct{
-				Name: strPtr("iPhone 17 Pro Max"),
-				Price: int64Ptr(150000),
+			input: &api.ProductUpdateRequest{
+				Name: &name,
+				Price: &price,
 			},
 
-			mock: &MockRepository{
+			mock: &domain.MockProductRepository{
 				GetByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Product, error) {
 					return product, nil
 				},
-				UpdateFunc: func(ctx context.Context, p *domain.Product) error {
-					return nil
+				UpdateFunc: func(ctx context.Context, p *domain.Product) (*domain.Product, error) {
+					return p, nil
 				},
 			},
 
@@ -572,21 +566,21 @@ func TestService_Update(t *testing.T) {
 		{
 			name: "invalid id",
 			id: uuid.Nil,
-			input: &UpdateProduct{Name: strPtr("test")},
-			mock: &MockRepository{},
+			input: &api.ProductUpdateRequest{Name: &name},
+			mock: &domain.MockProductRepository{},
 			wantErr: ErrInvalidID,
 		},
 		{
 			name: "nil input",
 			id: validID,
 			input: nil,
-			mock: &MockRepository{},
+			mock: &domain.MockProductRepository{},
 			wantErr: ErrNilInput,
 		},
 		{
 			name: "empty patch",
 			id: validID,
-			input: &UpdateProduct{
+			input: &api.ProductUpdateRequest{
 				Name: nil,
 				Description: nil,
 				Category: nil,
@@ -594,7 +588,7 @@ func TestService_Update(t *testing.T) {
 				DeliveryDays: nil,
 			},
 
-			mock: &MockRepository{
+			mock: &domain.MockProductRepository{
 				GetByIDFunc: func(ctx context.Context, u uuid.UUID) (*domain.Product, error) {
 					return product, nil
 				},
@@ -605,8 +599,8 @@ func TestService_Update(t *testing.T) {
 		{
 			name: "product not found",
 			id: validID,
-			input: &UpdateProduct{Name: strPtr("test")},
-			mock: &MockRepository{
+			input: &api.ProductUpdateRequest{Name: &name},
+			mock: &domain.MockProductRepository{
 				GetByIDFunc: func(ctx context.Context, u uuid.UUID) (*domain.Product, error) {
 					return nil, domain.ErrProductNotFound
 				},
@@ -616,13 +610,13 @@ func TestService_Update(t *testing.T) {
 		{
 			name: "repository error",
 			id: validID,
-			input: &UpdateProduct{Name: strPtr("test")},
-			mock: &MockRepository{
+			input: &api.ProductUpdateRequest{Name: &name},
+			mock: &domain.MockProductRepository{
 				GetByIDFunc: func(ctx context.Context, u uuid.UUID) (*domain.Product, error) {
 					return product, nil
 				},
-				UpdateFunc: func(ctx context.Context, p *domain.Product) error {
-					return repoErr
+				UpdateFunc: func(ctx context.Context, p *domain.Product) (*domain.Product, error) {
+					return nil, repoErr
 				},
 			},
 			wantErr: repoErr,
@@ -637,7 +631,7 @@ func TestService_Update(t *testing.T) {
 
 			svc := newTestService(tt.mock)
 
-			err := svc.Update(context.Background(), tt.id, tt.input)
+			_, err := svc.Update(context.Background(), tt.id, tt.input)
 
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)

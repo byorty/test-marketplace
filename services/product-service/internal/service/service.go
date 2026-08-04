@@ -3,115 +3,141 @@ package service
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
-	domain "github.com/byorty/test-marketplace/services/product-service/internal/domain/product"
+	"github.com/byorty/test-marketplace/services/product-service/internal/domain"
+	api "github.com/byorty/test-marketplace/services/product-service/internal/generated"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
-type Service struct {
-	repo domain.Repository
-	log *slog.Logger
+type ProductService struct {
+	repo domain.ProductRepository
+	log *zap.Logger
 }
 
-func New(log *slog.Logger, repo domain.Repository) *Service {
-	return &Service{
+func New(log *zap.Logger, repo domain.ProductRepository) *ProductService {
+	return &ProductService{
 		repo: repo,
-		log: log.With(slog.String("layer", "service")),
+		log: log.Named("product-service"),
 	}
 }
 
-func logError(log *slog.Logger, op string, err error) {
-	log.Error("operation failed", slog.String("op", op), slog.Any("error", err))
-}
-
-func (s *Service) Create(ctx context.Context, input *CreateProduct) (*domain.Product, error) {
-	const op = "Service.Create"
-
+func (s *ProductService) Create(ctx context.Context, input *api.ProductCreateRequest) (*domain.Product, error) {
 	start := time.Now()
 
 	if input == nil {
-		logError(s.log, op, ErrNilInput)
+		s.log.Error(
+			"create product failed",
+			zap.Error(ErrNilInput),
+		)
+
 		return nil, ErrNilInput
 	}
 
-	s.log.Info("create product started", "op", op, "name", input.Name, "price", input.Price)
-
 	if input.Name == "" {
-		logError(s.log, op, ErrInvalidProductName)
+		s.log.Error(
+			"create product failed",
+			zap.Error(ErrInvalidProductName),
+		)
+
 		return nil, ErrInvalidProductName
 	}
 
 	now := time.Now()
 
 	p := &domain.Product{
-		ID: uuid.New(),
-		Name: input.Name,
-		Description: input.Description,
-		Category: input.Category,
-		Price: input.Price,
+		ID:           uuid.New(),
+		Name:         input.Name,
+		Description:  input.Description,
+		Category:     input.Category,
+		Price:        input.Price,
 		DeliveryDays: input.DeliveryDays,
-		Rating: 0,
-		CreatedAt: now,
-		UpdatedAt: now,
+		Rating:       0,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	if err := s.repo.Create(ctx, p); err != nil {
-		logError(s.log, op, err)
-		return nil, fmt.Errorf("%s: create: %w", op, err)
+
+		s.log.Error(
+			"create product failed",
+			zap.Error(err),
+			zap.String("product_id", p.ID.String()),
+			zap.String("name", p.Name),
+		)
+
+		return nil, fmt.Errorf("create product: %w", err)
 	}
-	s.log.Info("create product success", "op", op, "id", p.ID, "duration_ms", time.Since(start).Milliseconds())
+
+	s.log.Info(
+		"product created",
+		zap.String("product_id", p.ID.String()),
+		zap.String("name", p.Name),
+		zap.Int64("price", p.Price),
+		zap.Duration("duration", time.Since(start)),
+	)
 
 	return p, nil
 }
 
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*domain.Product, error) {
-	const op = "Service.GetByID"
-
-	s.log.Debug("get product", "op", op, "id", id)
-
+func (s *ProductService) GetByID(ctx context.Context, id uuid.UUID) (*domain.Product, error) {
 	if id == uuid.Nil {
-		logError(s.log, op, ErrInvalidID)
+		s.log.Error(
+			"get product failed",
+			zap.Error(ErrInvalidID),
+		)
+
 		return nil, ErrInvalidID
 	}
 
 	p, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		logError(s.log, op, err)
-		return nil, fmt.Errorf("%s: %w", op, err)
+		s.log.Error(
+			"get product failed",
+			zap.Error(err),
+			zap.String("product_id", id.String()),
+		)
+
+		return nil, fmt.Errorf("get product: %w", err)
 	}
 
 	return p, nil
 }
 
-func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	const op = "Service.Delete"
-
+func (s *ProductService) Delete(ctx context.Context, id uuid.UUID) error {
 	start := time.Now()
 
-	s.log.Info("delete product", "op", op, "id", id)
-
 	if id == uuid.Nil {
-		logError(s.log, op, ErrInvalidID)
+		s.log.Error(
+			"delete product failed",
+			zap.Error(ErrInvalidID),
+		)
+
 		return ErrInvalidID
 	}
 
 	if err := s.repo.Delete(ctx, id); err != nil {
-		logError(s.log, op, err)
-		return fmt.Errorf("%s: %w", op, err)
+
+		s.log.Error(
+			"delete product failed",
+			zap.Error(err),
+			zap.String("product_id", id.String()),
+		)
+
+		return fmt.Errorf("delete product: %w", err)
 	}
 
-	s.log.Info("delete product success", "op", op, "id", id, "duration_ms", time.Since(start).Milliseconds())
+	s.log.Info(
+		"product deleted",
+		zap.String("product_id", id.String()),
+		zap.Duration("duration", time.Since(start)),
+	)
 
 	return nil
 }
 
-func (s *Service) List(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
-	const op = "Service.List"
-
-	s.log.Debug("list products", "op", op, "filter", filter)
-
+func (s *ProductService) List(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
 	if filter.Page <= 0 {
 		filter.Page = 1
 	}
@@ -122,79 +148,104 @@ func (s *Service) List(ctx context.Context, filter domain.ListFilter) (*domain.P
 
 	res, err := s.repo.List(ctx, filter)
 	if err != nil {
-		logError(s.log, op, err)
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
+		s.log.Error(
+			"list products failed",
+			zap.Error(err),
+			zap.Int("page", filter.Page),
+			zap.Int("page_size", filter.PageSize),
+		)
 
-	s.log.Debug("list products success", "op", op, "total", res.Total, "page", res.Page, "page_size", res.PageSize)
+		return nil, fmt.Errorf("list products: %w", err)
+	}
 
 	return res, nil
 }
 
-func (s *Service) Update(ctx context.Context, id uuid.UUID, input *UpdateProduct) error {
-	const op = "Service.Update"
-
+func (s *ProductService) Update(ctx context.Context, id uuid.UUID, input *api.ProductUpdateRequest) (*domain.Product, error) {
 	start := time.Now()
 
 	if id == uuid.Nil {
-		logError(s.log, op, ErrInvalidID)
-		return ErrInvalidID
+		s.log.Error(
+			"update product failed",
+			zap.Error(ErrInvalidID),
+		)
+
+		return nil, ErrInvalidID
 	}
 
 	if input == nil {
-		logError(s.log, op, ErrNilInput)
-		return ErrNilInput
-	}
+		s.log.Error(
+			"update product failed",
+			zap.Error(ErrNilInput),
+		)
 
-	s.log.Info("update product started", "op", op, "id", id)
+		return nil, ErrNilInput
+	}
 
 	existing, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		logError(s.log, op, err)
-		return fmt.Errorf("%s: get: %w", op, err)
+		s.log.Error(
+			"update product failed",
+			zap.Error(err),
+			zap.String("product_id", id.String()),
+		)
+
+		return nil, fmt.Errorf("get product: %w", err)
 	}
 
 	changed := 0
 
 	if input.Name != nil {
 		existing.Name = *input.Name
-		changed ++
+		changed++
 	}
 
 	if input.Description != nil {
 		existing.Description = *input.Description
-		changed ++
+		changed++
 	}
 
 	if input.Category != nil {
 		existing.Category = *input.Category
-		changed ++
+		changed++
 	}
 
 	if input.Price != nil {
 		existing.Price = *input.Price
-		changed ++
+		changed++
 	}
 
 	if input.DeliveryDays != nil {
 		existing.DeliveryDays = *input.DeliveryDays
-		changed ++
+		changed++
 	}
 
 	if changed == 0 {
-		logError(s.log, op, ErrEmptyUpdate)
-		return ErrEmptyUpdate
+		s.log.Error(
+			"update product failed",
+			zap.Error(ErrEmptyUpdate),
+			zap.String("product_id", id.String()),
+		)
+
+		return nil, ErrEmptyUpdate
 	}
 
-	existing.UpdatedAt = time.Now()
+	updated, err := s.repo.Update(ctx, existing)
+	if err != nil {
+		s.log.Error(
+			"update product failed",
+			zap.Error(err),
+			zap.String("product_id", id.String()),
+		)
 
-	if err := s.repo.Update(ctx, existing); err != nil {
-		logError(s.log, op, err)
-		return fmt.Errorf("%s: update: %w", op, err)
+		return nil, fmt.Errorf("update product: %w", err)
 	}
 
-	s.log.Info("update product success", "op", op, "id", id, "duration_ms", time.Since(start).Milliseconds())
+	s.log.Info(
+		"product updated",
+		zap.String("product_id", id.String()),
+		zap.Duration("duration", time.Since(start)),
+	)
 
-	return nil
+	return updated, nil
 }
-

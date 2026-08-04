@@ -1,6 +1,0 @@
-p, customer, product, view
-
-p, employee, product, view
-p, employee, product, create
-p, employee, product, update
-p, employee, product, delete

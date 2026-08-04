@@ -1,0 +1,15 @@
+p, customer, product, view
+
+p, employee, product, create
+p, employee, product, view
+p, employee, product, update
+p, employee, product, delete
+
+p, customer, cart, add
+p, customer, cart, remove
+p, customer, cart, view
+
+p, customer, order, create
+p, customer, order, view
+
+p, employee, order, view

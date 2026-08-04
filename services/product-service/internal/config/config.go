@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -48,22 +47,22 @@ type LogConfig struct {
     Level string `yaml:"level" env:"LOG_LEVEL" env-default:"info"`
 } 
 
-func MustLoad() *Config {
-    configPath := os.Getenv("CONFIG_PATH")
-    if configPath == "" {
-        configPath = "config/config.yaml"
-    }
+func Load() (*Config, error) {
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = "config/config.yaml"
+	}
 
-    var cfg Config
+	var cfg Config
 
-    if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
-        log.Fatalf("failed to read config %q: %v", configPath, err)
-    }
+	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
+		return nil, fmt.Errorf("read config %q: %w", configPath, err)
+	}
 
-    return &cfg
+	return &cfg, nil
 }
 
 type JWT struct {
-	Secret string `yaml:"secret"`
-	Issuer string `yaml:"issuer"`
+    Issuer        string `yaml:"issuer"`
+    PublicKeyPath string `yaml:"public_key_path"`
 }

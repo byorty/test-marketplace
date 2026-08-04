@@ -4,107 +4,116 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	pr "github.com/byorty/test-marketplace/services/order-service/internal/client/product"
-	"github.com/byorty/test-marketplace/services/order-service/internal/domain/order"
+	"github.com/byorty/test-marketplace/services/order-service/internal/domain"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
-type Service struct {
-	repo order.Repository
-	log *slog.Logger
+type OrderService struct {
+	repo domain.OrderRepository
+	log *zap.Logger
 
 	productClient pr.Client
 }
 
-func New(repo order.Repository, log *slog.Logger, productClient pr.Client) *Service {
-	return &Service{
+func New(repo domain.OrderRepository, log *zap.Logger, productClient pr.Client) *OrderService {
+	return &OrderService{
 		repo: repo,
-		log: log.With(slog.String("layer", "service")),
+		log: log.Named("order-service"),
 
 		productClient: productClient,
 	}
 }
 
-func logError(log *slog.Logger, op string, err error) {
-	log.Error("operation failed", slog.String("op", op), slog.Any("error", err))
-}
-
-func (s *Service) AddToCart(ctx context.Context, item *order.CartItem) error {
-	const op = "Service.AddToCart"
-
+func (s *OrderService) AddToCart(ctx context.Context, item *domain.CartItem) error {
 	start := time.Now()
-	
+
 	if item == nil {
-		logError(s.log, op, ErrInvalidInput)
+		s.log.Error("invalid input", zap.Error(ErrInvalidInput))
 		return ErrInvalidInput
 	}
 
-	s.log.Info("add to cart started", "op", op,
-	"user_id", item.UserID,
-	"product_id", item.ProductID,
-	"quantity", item.Quantity)
-
+	s.log.Info(
+		"add to cart started",
+		zap.String("user_id", item.UserID.String()),
+		zap.String("product_id", item.ProductID.String()),
+		zap.Int("quantity", item.Quantity),
+	)
 
 	if item.UserID == uuid.Nil {
-		logError(s.log, op, ErrInvalidUserID)
+		s.log.Error("invalid user id", zap.Error(ErrInvalidUserID))
 		return ErrInvalidUserID
 	}
 
 	if item.ProductID == uuid.Nil {
-		logError(s.log, op, ErrInvalidProductdID)
-		return ErrInvalidProductdID
+		s.log.Error("invalid product id", zap.Error(ErrInvalidProductID))
+		return ErrInvalidProductID
 	}
 
 	if item.Quantity <= 0 {
-		logError(s.log, op, ErrInvalidQuantity)
+		s.log.Error(
+			"invalid quantity",
+			zap.Error(ErrInvalidQuantity),
+			zap.Int("quantity", item.Quantity),
+		)
 		return ErrInvalidQuantity
 	}
 
 	product, err := s.productClient.GetProduct(ctx, item.ProductID)
 	if err != nil {
 		if errors.Is(err, pr.ErrProductNotFound) {
-			logError(s.log, op, ErrProductNotFound)
+			s.log.Error(
+				"product not found",
+				zap.String("product_id", item.ProductID.String()),
+			)
 			return ErrProductNotFound
 		}
-		logError(s.log, op, err)
-		return fmt.Errorf("%s: get product: %w", op, err)
+		return fmt.Errorf("get product: %w", err)
 	}
 
 	if product == nil {
-		logError(s.log, op, ErrProductNotFound)
+		s.log.Error(
+			"product not found",
+			zap.String("product_id", item.ProductID.String()),
+		)
 		return ErrProductNotFound
 	}
 
 	if err := s.repo.AddToCart(ctx, item); err != nil {
-		logError(s.log, op, err)
-		return fmt.Errorf("%s: add to cart: %w", op, err)
+		return fmt.Errorf("add to cart: %w", err)
 	}
 
-	s.log.Info("add to cart success", "op", op,
-		"user_id", item.UserID, "product_id", item.ProductID,
-	 	"duration_ms", time.Since(start).Milliseconds(),
+	s.log.Info(
+		"add to cart success",
+		zap.String("user_id", item.UserID.String()),
+		zap.String("product_id", item.ProductID.String()),
+		zap.Duration("duration", time.Since(start)),
 	)
 
 	return nil
 }
 
-func (s *Service) GetCart(ctx context.Context, userID uuid.UUID) (*order.Cart, error) {
-	const op = "Service.GetCart"
+func (s *OrderService) GetCart(ctx context.Context, userID uuid.UUID) (*domain.Cart, error) {
 
-	s.log.Debug("get cart", "op", op, "user_id", userID)
+	s.log.Debug(
+		"get cart started",
+		zap.String("user_id", userID.String()),
+	)
 
 	if userID == uuid.Nil {
-		logError(s.log, op, ErrInvalidUserID)
-		return nil, ErrInvalidUserID 
+		s.log.Error(
+			"invalid user id",
+			zap.Error(ErrInvalidUserID),
+		)
+		return nil, ErrInvalidUserID
 	}
 
 	items, err := s.repo.GetCart(ctx, userID)
 	if err != nil {
-		logError(s.log, op, err)
-		return nil, fmt.Errorf("%s: get cart: %w", op, err)
+		return nil, fmt.Errorf("get cart: %w", err)
 	}
 
 	total := int64(0)
@@ -112,184 +121,229 @@ func (s *Service) GetCart(ctx context.Context, userID uuid.UUID) (*order.Cart, e
 	for _, item := range items {
 		product, err := s.productClient.GetProduct(ctx, item.ProductID)
 		if err != nil {
-			logError(s.log, op, err)
-			return nil, fmt.Errorf("%s: get product: %w", op, err)
+			s.log.Error(
+				"failed to get product",
+				zap.Error(err),
+				zap.String("product_id", item.ProductID.String()),
+			)
+
+			return nil, fmt.Errorf("get product: %w", err)
 		}
 
-		total += product.Price *int64(item.Quantity)
+		total += product.Price * int64(item.Quantity)
 	}
 
-	return &order.Cart{
-		Items: items,
+	s.log.Debug(
+		"get cart success",
+		zap.String("user_id", userID.String()),
+		zap.Int("items_count", len(items)),
+		zap.Int64("total_price", total),
+	)
+
+	return &domain.Cart{
+		Items:      items,
 		TotalPrice: total,
 	}, nil
 }
 
-func (s *Service) RemoveFromCart(ctx context.Context, userID uuid.UUID, productID uuid.UUID) error {
-	const op = "Service.RemoveFromCart"
-
+func (s *OrderService) RemoveFromCart(ctx context.Context, userID, productID uuid.UUID) error {
 	start := time.Now()
 
-	s.log.Info("remove from cart started", "op", op, "user_id", userID, "product_id", productID)
+	s.log.Info(
+		"remove from cart started",
+		zap.String("user_id", userID.String()),
+		zap.String("product_id", productID.String()),
+	)
 
 	if userID == uuid.Nil {
-		logError(s.log, op, ErrInvalidUserID)
+		s.log.Named("RemoveFromCart").Error(
+			"invalid user id",
+			zap.Error(ErrInvalidUserID),
+		)
 		return ErrInvalidUserID
 	}
 
 	if productID == uuid.Nil {
-		logError(s.log, op, ErrInvalidProductdID)
-		return ErrInvalidProductdID
+		s.log.Error(
+			"invalid product id",
+			zap.Error(ErrInvalidProductID),
+		)
+		return ErrInvalidProductID
 	}
 
 	if err := s.repo.RemoveFromCart(ctx, userID, productID); err != nil {
-		logError(s.log, op, err)
-		return fmt.Errorf("%s: remove from cart: %w", op, err)
+		return fmt.Errorf("remove from cart: %w", err)
 	}
 
-	s.log.Info("remove from cart success", 
-	"op", op, "user_id", userID, 
-	"product_id", productID, 
-	"duration_ms", time.Since(start).Milliseconds())
+	s.log.Info(
+		"remove from cart success",
+		zap.String("user_id", userID.String()),
+		zap.String("product_id", productID.String()),
+		zap.Duration("duration", time.Since(start)),
+	)
 
 	return nil
 }
 
-func (s *Service) ClearCart(ctx context.Context, userID uuid.UUID) error {
-	const op = "Service.ClearCart"
-
+func (s *OrderService) ClearCart(ctx context.Context, userID uuid.UUID) error {
 	start := time.Now()
 
-	s.log.Info("clear cart started", "op", op, "user_id", userID)
+	s.log.Info(
+		"clear cart started",
+		zap.String("user_id", userID.String()),
+	)
 
 	if userID == uuid.Nil {
-		logError(s.log, op, ErrInvalidUserID)
+		s.log.Warn(
+			"invalid user id",
+			zap.String("user_id", userID.String()),
+		)
 		return ErrInvalidUserID
 	}
 
 	if err := s.repo.ClearCart(ctx, userID); err != nil {
-		logError(s.log, op, err)
-		return fmt.Errorf("%s: clear cart: %w", op, err)
+		return fmt.Errorf("clear cart: %w", err)
 	}
 
-	s.log.Info("clear cart success", "op", op, 
-	"user_id", userID, "duration_ms", time.Since(start).Milliseconds())
+	s.log.Info(
+		"clear cart success",
+		zap.String("user_id", userID.String()),
+		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+	)
 
 	return nil
-}	
+}
 
-func (s *Service) GetOrderByID(ctx context.Context, id uuid.UUID) (*order.Order, error) {
-	const op = "Service.GetOrderByID"
-
-	s.log.Debug("get order by id", "op", op, "id", id)
+func (s *OrderService) GetOrderByID(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
+	s.log.Debug(
+		"get order started",
+		zap.String("order_id", id.String()),
+	)
 
 	if id == uuid.Nil {
-		logError(s.log, op, ErrInvalidID)
+		s.log.Warn(
+			"invalid order id",
+			zap.String("order_id", id.String()),
+		)
 		return nil, ErrInvalidID
 	}
 
-	o, err := s.repo.GetOrderByID(ctx, id)
+	order, err := s.repo.GetOrderByID(ctx, id)
 	if err != nil {
-		logError(s.log, op, err)
-		return nil, fmt.Errorf("%s: get order by id: %w", op, err)
+		return nil, fmt.Errorf("get order: %w", err)
 	}
 
-	return o, nil
+	s.log.Debug(
+		"get order success",
+		zap.String("order_id", id.String()),
+	)
+
+	return order, nil
 }
 
-func (s *Service) GetOrderItems(ctx context.Context, orderID uuid.UUID) ([]order.OrderItem, error) {
-	const op = "Service.GetOrderItems"
-
-	s.log.Debug("get order items", "op", op, "order_id", orderID)
+func (s *OrderService) GetOrderItems(ctx context.Context, orderID uuid.UUID) ([]domain.OrderItem, error) {
+	s.log.Debug(
+		"get order items started",
+		zap.String("order_id", orderID.String()),
+	)
 
 	if orderID == uuid.Nil {
-		logError(s.log, op, ErrInvalidOrderID)
+		s.log.Warn(
+			"invalid order id",
+			zap.String("order_id", orderID.String()),
+		)
 		return nil, ErrInvalidOrderID
 	}
 
-	o, err := s.repo.GetOrderItems(ctx, orderID)
+	items, err := s.repo.GetOrderItems(ctx, orderID)
 	if err != nil {
-		logError(s.log, op, err)
-		return nil, fmt.Errorf("%s: get order items: %w", op, err)
+		return nil, fmt.Errorf("get order items: %w", err)
 	}
 
-	return o, nil
+	s.log.Debug(
+		"get order items success",
+		zap.String("order_id", orderID.String()),
+		zap.Int("items_count", len(items)),
+	)
+
+	return items, nil
 }
 
-func (s *Service) CreateOrder(ctx context.Context, userID uuid.UUID) (*order.Order, error) {
-	const op = "Service.CreateOrder"
-
+func (s *OrderService) CreateOrder(ctx context.Context, userID uuid.UUID) (*domain.Order, error) {
 	start := time.Now()
 
 	if userID == uuid.Nil {
-		logError(s.log, op, ErrInvalidUserID)
+		s.log.Warn(
+			"invalid user id",
+			zap.String("user_id", userID.String()),
+		)
 		return nil, ErrInvalidUserID
 	}
 
-	s.log.Info("create order started", "op", op, "user_id", userID)
+	s.log.Info(
+		"create order started",
+		zap.String("user_id", userID.String()),
+	)
 
 	cart, err := s.repo.GetCart(ctx, userID)
 	if err != nil {
-		logError(s.log, op, err)
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return nil, fmt.Errorf("get cart: %w", err)
 	}
 
 	if len(cart) == 0 {
-		logError(s.log, op, order.ErrCartEmpty)
-		return nil, order.ErrCartEmpty
+		s.log.Warn(
+			"cart is empty",
+			zap.String("user_id", userID.String()),
+		)
+		return nil, domain.ErrCartEmpty
 	}
 
 	total := int64(0)
-
-	items := make([]order.OrderItem, 0, len(cart))
-
+	items := make([]domain.OrderItem, 0, len(cart))
 	orderID := uuid.New()
 
 	var deliveryDays int32
 
 	for _, cartItem := range cart {
-
 		product, err := s.productClient.GetProduct(ctx, cartItem.ProductID)
-
 		if err != nil {
 			if errors.Is(err, pr.ErrProductNotFound) {
-				logError(s.log, op, err)
+				s.log.Warn(
+					"product not found",
+					zap.String("product_id", cartItem.ProductID.String()),
+				)
 				return nil, ErrProductNotFound
 			}
+
+			return nil, fmt.Errorf("get product: %w", err)
 		}
 
-		if err != nil {
-			logError(s.log, op, err)
-			return nil, fmt.Errorf("%s: %w", op, err)
-		}
-		
 		total += product.Price * int64(cartItem.Quantity)
 
 		if product.DeliveryDays > deliveryDays {
 			deliveryDays = product.DeliveryDays
 		}
 
-		items = append(items, order.OrderItem{
-			ID: uuid.New(),
-			OrderID: orderID,
-			ProductID: product.ID,
-			ProductName: product.Name,
+		items = append(items, domain.OrderItem{
+			ID:           uuid.New(),
+			OrderID:      orderID,
+			ProductID:    product.ID,
 			ProductPrice: product.Price,
-			Quantity: cartItem.Quantity,
+			Quantity:     cartItem.Quantity,
 		})
 	}
 
-	o := &order.Order{
-		ID: orderID,
-		UserID: userID,
-		Status: order.StatusCreated,
-		Total: total,
-		CreatedAt: time.Now(),
+	order := &domain.Order{
+		ID:           orderID,
+		UserID:       userID,
+		Status:       domain.StatusCreated,
+		Total:        total,
+		CreatedAt:    time.Now(),
 		DeliveryDate: time.Now().Add(time.Duration(deliveryDays) * 24 * time.Hour),
 	}
 
-	err = s.repo.Transaction(ctx, func(repo order.Repository) error {
-		if err := repo.CreateOrder(ctx, o); err != nil {
+	if err := s.repo.Transaction(ctx, func(repo domain.OrderRepository) error {
+		if err := repo.CreateOrder(ctx, order); err != nil {
 			return err
 		}
 
@@ -302,17 +356,19 @@ func (s *Service) CreateOrder(ctx context.Context, userID uuid.UUID) (*order.Ord
 		}
 
 		return nil
-	})
-
-	if err != nil {
-		logError(s.log, op, err)
-		return nil, fmt.Errorf("%s: create order: %w", op, err)
+	}); err != nil {
+		return nil, fmt.Errorf("create order: %w", err)
 	}
 
-	s.log.Info("create order success", "op", op, 
-	"order_id", orderID, "user_id", userID, "total", total,
-	"duration_ms", time.Since(start).Milliseconds())
+	s.log.Info(
+		"create order success",
+		zap.String("order_id", orderID.String()),
+		zap.String("user_id", userID.String()),
+		zap.Int64("total", total),
+		zap.Int("items_count", len(items)),
+		zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+	)
 
-	return o, nil
+	return order, nil
 }
 
