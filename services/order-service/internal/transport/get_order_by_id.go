@@ -3,10 +3,10 @@ package transport
 import (
 	"context"
 
-	"github.com/byorty/test-marketplace/services/auth"
+	"github.com/byorty/test-marketplace/services/common/auth"
+	rbac "github.com/byorty/test-marketplace/services/common/rbac"
 	api "github.com/byorty/test-marketplace/services/order-service/internal/generated/openapi"
 	"github.com/byorty/test-marketplace/services/order-service/internal/service"
-	rbac "github.com/byorty/test-marketplace/services/rbac"
 )
 
 func (h *OrderHandler) GetOrderByID(

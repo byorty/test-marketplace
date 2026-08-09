@@ -3,7 +3,7 @@ package transport
 import (
 	"context"
 
-	"github.com/byorty/test-marketplace/services/auth"
+	"github.com/byorty/test-marketplace/services/common/auth"
 	api "github.com/byorty/test-marketplace/services/order-service/internal/generated/openapi"
 )
 

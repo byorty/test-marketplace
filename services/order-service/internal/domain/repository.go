@@ -4,8 +4,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type OrderRepository interface {
@@ -23,8 +21,4 @@ type OrderRepository interface {
 	Transaction(ctx context.Context, fn func(repo OrderRepository) error) error
 }
 
-type DBTX interface {
-    Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
-    Query(ctx context.Context, sql string, arguments ...any) (pgx.Rows, error)
-    QueryRow(ctx context.Context, sql string, arguments ...any) pgx.Row
-}
+

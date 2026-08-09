@@ -2,691 +2,670 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/byorty/test-marketplace/services/order-service/internal/domain"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/pashagolub/pgxmock/v4"
 	"github.com/stretchr/testify/require"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
 	"go.uber.org/zap"
 )
 
-func newTestOrderRepository(t *testing.T) (*OrderRepository, pgxmock.PgxPoolIface) {
+func newTestDB(t *testing.T) *bun.DB {
 	t.Helper()
 
-	mock, err := pgxmock.NewPool()
-	if err != nil {
-		t.Fatal(err)
-	}
+	sqldb, err := sql.Open(
+		"pgx",
+		"postgres://postgres:postgres@localhost:5432/marketplace?sslmode=disable",
+	)
+	require.NoError(t, err)
 
-	repo := &OrderRepository{
-		db:  mock,
-		log: zap.NewNop(),
-	}
+	db := bun.NewDB(
+		sqldb,
+		pgdialect.New(),
+	)
 
-	return repo, mock
+	err = db.Ping()
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		db.Close()
+	})
+
+	return db
+}
+
+func newOrderTestRepository(t *testing.T) (*OrderRepository, *bun.DB) {
+	t.Helper()
+
+	db := newTestDB(t)
+
+	repo := New(
+		db,
+		zap.NewNop(),
+	)
+
+	return repo, db
 }
 
 func TestOrderRepository_AddToCart(t *testing.T) {
-	t.Parallel()
+	repo, db := newOrderTestRepository(t)
 
-	repo, mock := newTestOrderRepository(t)
+	ctx := context.Background()
+
+	userID := uuid.New()
 
 	item := &domain.CartItem{
 		ID:        uuid.New(),
-		UserID:    uuid.New(),
+		UserID:    userID,
 		ProductID: uuid.New(),
 		Quantity:  2,
 	}
 
-	tests := []struct {
-		name    string
-		prepare func()
-		wantErr error
-	}{
-		{
-			name: "success",
-			prepare: func() {
-				mock.ExpectExec(`INSERT INTO cart_items`).
-					WithArgs(item.ID, item.UserID, item.ProductID, item.Quantity).
-					WillReturnResult(pgxmock.NewResult("INSERT", 1))
-			},
-			wantErr: nil,
-		},
-		{
-			name: "db error",
-			prepare: func() {
-				mock.ExpectExec(`INSERT INTO cart_items`).
-					WithArgs(item.ID, item.UserID, item.ProductID, item.Quantity).
-					WillReturnError(errors.New("db error"))
-			},
-			wantErr: errors.New("db error"),
-		},
-	}
+	err := repo.AddToCart(ctx, item)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.prepare()
+	require.NoError(t, err)
 
-			err := repo.AddToCart(context.Background(), item)
+	var actual domain.CartItem
 
-			if tt.wantErr != nil {
-				require.Error(t, err)
-				require.ErrorContains(t, err, tt.wantErr.Error())
-			} else {
-				require.NoError(t, err)
-			}
+	err = db.NewSelect().
+		Model(&actual).
+		Where("id = ?", item.ID).
+		Scan(ctx)
 
-			require.NoError(t, mock.ExpectationsWereMet())
-		})
-	}
+	require.NoError(t, err)
+
+	require.Equal(t, item.ID, actual.ID)
+	require.Equal(t, item.UserID, actual.UserID)
+	require.Equal(t, item.ProductID, actual.ProductID)
+	require.Equal(t, item.Quantity, actual.Quantity)
+
+	t.Cleanup(func() {
+		_, _ = db.NewDelete().
+			Model((*domain.CartItem)(nil)).
+			Where("user_id = ?", userID).
+			Exec(ctx)
+	})
 }
 
 func TestOrderRepository_GetCart(t *testing.T) {
-	t.Parallel()
+	repo, db := newOrderTestRepository(t)
 
-	repo, mock := newTestOrderRepository(t)
+	ctx := context.Background()
 
 	userID := uuid.New()
 
-	tests := []struct {
-		name    string
-		prepare func()
-		check   func(t *testing.T, items []domain.CartItem)
-		wantErr error
-	}{
+	items := []domain.CartItem{
 		{
-			name: "success",
-			prepare: func() {
-				rows := pgxmock.NewRows([]string{
-					"id", "user_id", "product_id", "quantity",
-				})
-
-				rows.AddRow(
-					uuid.New(),
-					userID,
-					uuid.New(),
-					2,
-				)
-
-				rows.AddRow(
-					uuid.New(),
-					userID,
-					uuid.New(),
-					1,
-				)
-
-				mock.ExpectQuery(`SELECT id, user_id, product_id, quantity`).
-					WithArgs(userID).
-					WillReturnRows(rows)
-			},
-			check: func(t *testing.T, items []domain.CartItem) {
-				require.Len(t, items, 2)
-				require.Equal(t, userID, items[0].UserID)
-				require.Equal(t, 2, items[0].Quantity)
-				require.Equal(t, userID, items[1].UserID)
-				require.Equal(t, 1, items[1].Quantity)
-			},
-			wantErr: nil,
+			ID:        uuid.New(),
+			UserID:    userID,
+			ProductID: uuid.New(),
+			Quantity:  2,
 		},
 		{
-			name: "empty cart",
-			prepare: func() {
-				rows := pgxmock.NewRows([]string{
-					"id", "user_id", "product_id", "quantity",
-				})
-
-				mock.ExpectQuery(`SELECT id, user_id, product_id, quantity`).
-					WithArgs(userID).
-					WillReturnRows(rows)
-			},
-			check: func(t *testing.T, items []domain.CartItem) {
-				require.Nil(t, items)
-			},
-			wantErr: domain.ErrCartEmpty,
-		},
-		{
-			name: "query error",
-			prepare: func() {
-				mock.ExpectQuery(`SELECT id, user_id, product_id, quantity`).
-					WithArgs(userID).
-					WillReturnError(errors.New("db error"))
-			},
-			wantErr: errors.New("db error"),
-		},
-		{
-			name: "scan error",
-			prepare: func() {
-				rows := pgxmock.NewRows([]string{
-					"id", "user_id", "product_id", "quantity",
-				})
-
-				rows.AddRow(
-					"not-a-uuid", 
-					userID,
-					uuid.New(),
-					2,
-				)
-
-				mock.ExpectQuery(`SELECT id, user_id, product_id, quantity`).
-					WithArgs(userID).
-					WillReturnRows(rows)
-			},
-			wantErr: errors.New("Scan"), 
+			ID:        uuid.New(),
+			UserID:    userID,
+			ProductID: uuid.New(),
+			Quantity:  5,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.prepare()
+	_, err := db.NewInsert().
+		Model(&items).
+		Exec(ctx)
 
-			items, err := repo.GetCart(context.Background(), userID)
+	require.NoError(t, err)
 
-			if tt.wantErr != nil {
-				require.Error(t, err)
-				require.ErrorContains(t, err, tt.wantErr.Error())
-			} else {
-				require.NoError(t, err)
-			}
+	result, err := repo.GetCart(ctx, userID)
 
-			if tt.check != nil {
-				tt.check(t, items)
-			}
+	require.NoError(t, err)
+	require.Len(t, result, 2)
 
-			require.NoError(t, mock.ExpectationsWereMet())
-		})
-	}
+	require.Equal(t, items[0].ID, result[0].ID)
+	require.Equal(t, items[0].UserID, result[0].UserID)
+	require.Equal(t, items[0].ProductID, result[0].ProductID)
+	require.Equal(t, items[0].Quantity, result[0].Quantity)
+
+	require.Equal(t, items[1].ID, result[1].ID)
+	require.Equal(t, items[1].UserID, result[1].UserID)
+	require.Equal(t, items[1].ProductID, result[1].ProductID)
+	require.Equal(t, items[1].Quantity, result[1].Quantity)
+
+	t.Cleanup(func() {
+		_, _ = db.NewDelete().
+			Model((*domain.CartItem)(nil)).
+			Where("user_id = ?", userID).
+			Exec(ctx)
+	})
+}
+
+func TestOrderRepository_GetCart_Empty(t *testing.T) {
+	repo, db := newOrderTestRepository(t)
+
+	ctx := context.Background()
+
+	userID := uuid.New()
+
+	items, err := repo.GetCart(ctx, userID)
+
+	require.Nil(t, items)
+	require.ErrorIs(t, err, domain.ErrCartEmpty)
+
+	db.Close()
 }
 
 func TestOrderRepository_RemoveFromCart(t *testing.T) {
-	t.Parallel()
+	repo, db := newOrderTestRepository(t)
 
-	repo, mock := newTestOrderRepository(t)
+	ctx := context.Background()
 
 	userID := uuid.New()
 	productID := uuid.New()
 
-	tests := []struct {
-		name    string
-		prepare func()
-		wantErr error
-	}{
-		{
-			name: "success",
-			prepare: func() {
-				mock.ExpectExec(`DELETE FROM cart_items`).
-					WithArgs(userID, productID).
-					WillReturnResult(pgxmock.NewResult("DELETE", 1))
-			},
-			wantErr: nil,
-		},
-		{
-			name: "item not found",
-			prepare: func() {
-				mock.ExpectExec(`DELETE FROM cart_items`).
-					WithArgs(userID, productID).
-					WillReturnResult(pgxmock.NewResult("DELETE", 0))
-			},
-			wantErr: domain.ErrCartItemNotFound,
-		},
-		{
-			name: "db error",
-			prepare: func() {
-				mock.ExpectExec(`DELETE FROM cart_items`).
-					WithArgs(userID, productID).
-					WillReturnError(errors.New("db error"))
-			},
-			wantErr: errors.New("db error"),
-		},
+	itemToRemove := &domain.CartItem{
+		ID:        uuid.New(),
+		UserID:    userID,
+		ProductID: productID,
+		Quantity:  2,
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.prepare()
-
-			err := repo.RemoveFromCart(context.Background(), userID, productID)
-
-			if tt.wantErr != nil {
-				require.Error(t, err)
-				require.ErrorContains(t, err, tt.wantErr.Error())
-			} else {
-				require.NoError(t, err)
-			}
-
-			require.NoError(t, mock.ExpectationsWereMet())
-		})
+	itemToKeep := &domain.CartItem{
+		ID:        uuid.New(),
+		UserID:    userID,
+		ProductID: uuid.New(),
+		Quantity:  5,
 	}
+
+	_, err := db.NewInsert().
+		Model(itemToRemove).
+		Exec(ctx)
+
+	require.NoError(t, err)
+
+	_, err = db.NewInsert().
+		Model(itemToKeep).
+		Exec(ctx)
+
+	require.NoError(t, err)
+
+	err = repo.RemoveFromCart(ctx, userID, productID)
+
+	require.NoError(t, err)
+
+	var deleted domain.CartItem
+
+	err = db.NewSelect().
+		Model(&deleted).
+		Where("id = ?", itemToRemove.ID).
+		Scan(ctx)
+
+	require.ErrorIs(t, err, sql.ErrNoRows)
+
+	var remaining domain.CartItem
+
+	err = db.NewSelect().
+		Model(&remaining).
+		Where("id = ?", itemToKeep.ID).
+		Scan(ctx)
+
+	require.NoError(t, err)
+	require.Equal(t, itemToKeep.ID, remaining.ID)
+	require.Equal(t, itemToKeep.ProductID, remaining.ProductID)
+	require.Equal(t, itemToKeep.Quantity, remaining.Quantity)
+
+	t.Cleanup(func() {
+		_, _ = db.NewDelete().
+			Model((*domain.CartItem)(nil)).
+			Where("user_id = ?", userID).
+			Exec(ctx)
+	})
+}
+
+func TestOrderRepository_RemoveFromCart_NotFound(t *testing.T) {
+	repo, _ := newOrderTestRepository(t)
+
+	ctx := context.Background()
+
+	err := repo.RemoveFromCart(
+		ctx,
+		uuid.New(),
+		uuid.New(),
+	)
+
+	require.ErrorIs(t, err, domain.ErrCartItemNotFound)
 }
 
 func TestOrderRepository_ClearCart(t *testing.T) {
-	t.Parallel()
+	repo, db := newOrderTestRepository(t)
 
-	repo, mock := newTestOrderRepository(t)
+	ctx := context.Background()
 
 	userID := uuid.New()
+	otherUserID := uuid.New()
 
-	tests := []struct {
-		name    string
-		prepare func()
-		wantErr error
-	}{
+	userItems := []domain.CartItem{
 		{
-			name: "success",
-			prepare: func() {
-				mock.ExpectExec(`DELETE FROM cart_items`).
-					WithArgs(userID).
-					WillReturnResult(pgxmock.NewResult("DELETE", 3))
-			},
-			wantErr: nil,
+			ID:        uuid.New(),
+			UserID:    userID,
+			ProductID: uuid.New(),
+			Quantity:  2,
 		},
 		{
-			name: "db error",
-			prepare: func() {
-				mock.ExpectExec(`DELETE FROM cart_items`).
-					WithArgs(userID).
-					WillReturnError(errors.New("db error"))
-			},
-			wantErr: errors.New("db error"),
+			ID:        uuid.New(),
+			UserID:    userID,
+			ProductID: uuid.New(),
+			Quantity:  5,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.prepare()
-
-			err := repo.ClearCart(context.Background(), userID)
-
-			if tt.wantErr != nil {
-				require.Error(t, err)
-				require.ErrorContains(t, err, tt.wantErr.Error())
-			} else {
-				require.NoError(t, err)
-			}
-
-			require.NoError(t, mock.ExpectationsWereMet())
-		})
+	otherUserItem := &domain.CartItem{
+		ID:        uuid.New(),
+		UserID:    otherUserID,
+		ProductID: uuid.New(),
+		Quantity:  1,
 	}
+
+	_, err := db.NewInsert().
+		Model(&userItems).
+		Exec(ctx)
+
+	require.NoError(t, err)
+
+	_, err = db.NewInsert().
+		Model(otherUserItem).
+		Exec(ctx)
+
+	require.NoError(t, err)
+
+	err = repo.ClearCart(ctx, userID)
+
+	require.NoError(t, err)
+
+	var remainingUserItems []domain.CartItem
+
+	err = db.NewSelect().
+		Model(&remainingUserItems).
+		Where("user_id = ?", userID).
+		Scan(ctx)
+
+	require.NoError(t, err)
+	require.Empty(t, remainingUserItems)
+
+	var remainingOtherUserItem domain.CartItem
+
+	err = db.NewSelect().
+		Model(&remainingOtherUserItem).
+		Where("id = ?", otherUserItem.ID).
+		Scan(ctx)
+
+	require.NoError(t, err)
+	require.Equal(t, otherUserID, remainingOtherUserItem.UserID)
+
+	t.Cleanup(func() {
+		_, _ = db.NewDelete().
+			Model((*domain.CartItem)(nil)).
+			Where("user_id IN (?, ?)", userID, otherUserID).
+			Exec(ctx)
+	})
 }
 
 func TestOrderRepository_CreateOrder(t *testing.T) {
-	t.Parallel()
+	repo, db := newOrderTestRepository(t)
 
-	repo, mock := newTestOrderRepository(t)
-
-	now := time.Now()
-	deliveryDate := now.Add(5 * 24 * time.Hour)
+	ctx := context.Background()
 
 	order := &domain.Order{
 		ID:           uuid.New(),
 		UserID:       uuid.New(),
-		Status:       "pending",
-		Total:        150000,
-		CreatedAt:    now,
-		DeliveryDate: deliveryDate,
+		Status:       domain.StatusCreated,
+		Total:        1500,
+		CreatedAt:    time.Now(),
+		DeliveryDate: time.Now().Add(48 * time.Hour),
 	}
 
-	tests := []struct {
-		name    string
-		prepare func()
-		wantErr error
-	}{
-		{
-			name: "success",
-			prepare: func() {
-				mock.ExpectExec(`INSERT INTO orders`).
-					WithArgs(
-						order.ID,
-						order.UserID,
-						order.Status,
-						order.Total,
-						order.CreatedAt,
-						order.DeliveryDate,
-					).
-					WillReturnResult(pgxmock.NewResult("INSERT", 1))
-			},
-			wantErr: nil,
-		},
-		{
-			name: "db error",
-			prepare: func() {
-				mock.ExpectExec(`INSERT INTO orders`).
-					WithArgs(
-						order.ID,
-						order.UserID,
-						order.Status,
-						order.Total,
-						order.CreatedAt,
-						order.DeliveryDate,
-					).
-					WillReturnError(errors.New("db error"))
-			},
-			wantErr: errors.New("db error"),
-		},
-	}
+	err := repo.CreateOrder(ctx, order)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.prepare()
+	require.NoError(t, err)
 
-			err := repo.CreateOrder(context.Background(), order)
+	var actual domain.Order
 
-			if tt.wantErr != nil {
-				require.Error(t, err)
-				require.ErrorContains(t, err, tt.wantErr.Error())
-			} else {
-				require.NoError(t, err)
-			}
+	err = db.NewSelect().
+		Model(&actual).
+		Where("id = ?", order.ID).
+		Scan(ctx)
 
-			require.NoError(t, mock.ExpectationsWereMet())
-		})
-	}
+	require.NoError(t, err)
+
+	require.Equal(t, order.ID, actual.ID)
+	require.Equal(t, order.UserID, actual.UserID)
+	require.Equal(t, order.Status, actual.Status)
+	require.Equal(t, order.Total, actual.Total)
+	require.WithinDuration(t, order.CreatedAt, actual.CreatedAt, time.Second)
+	require.WithinDuration(t, order.DeliveryDate, actual.DeliveryDate, time.Second)
+
+	t.Cleanup(func() {
+		_, _ = db.NewDelete().
+			Model((*domain.Order)(nil)).
+			Where("id = ?", order.ID).
+			Exec(ctx)
+	})
 }
 
 func TestOrderRepository_CreateOrderItems(t *testing.T) {
-	t.Parallel()
+	repo, db := newOrderTestRepository(t)
 
-	repo, mock := newTestOrderRepository(t)
+	ctx := context.Background()
 
 	orderID := uuid.New()
+
+	order := &domain.Order{
+		ID:           orderID,
+		UserID:       uuid.New(),
+		Status:       domain.StatusCreated,
+		Total:        1450, 
+		CreatedAt:    time.Now(),
+		DeliveryDate: time.Now().Add(48 * time.Hour),
+	}
+	_, err := db.NewInsert().Model(order).Exec(ctx)
+	require.NoError(t, err)
 
 	items := []domain.OrderItem{
 		{
 			ID:           uuid.New(),
 			OrderID:      orderID,
 			ProductID:    uuid.New(),
-			ProductPrice: 50000,
+			ProductPrice: 100,
+			Quantity:     2,
+		},
+		{
+			ID:           uuid.New(),
+			OrderID:      orderID,
+			ProductID:    uuid.New(),
+			ProductPrice: 500,
 			Quantity:     1,
 		},
 		{
 			ID:           uuid.New(),
 			OrderID:      orderID,
 			ProductID:    uuid.New(),
-			ProductPrice: 100000,
-			Quantity:     2,
+			ProductPrice: 250,
+			Quantity:     3,
 		},
 	}
 
-	tests := []struct {
-		name    string
-		prepare func()
-		wantErr error
-	}{
-		{
-			name: "success",
-			prepare: func() {
-				mock.ExpectExec(`INSERT INTO order_items`).
-					WithArgs(
-						items[0].ID,
-						items[0].OrderID,
-						items[0].ProductID,
-						items[0].ProductPrice,
-						items[0].Quantity,
-					).
-					WillReturnResult(pgxmock.NewResult("INSERT", 1))
+	err = repo.CreateOrderItems(ctx, items)
 
-				mock.ExpectExec(`INSERT INTO order_items`).
-					WithArgs(
-						items[1].ID,
-						items[1].OrderID,
-						items[1].ProductID,
-						items[1].ProductPrice,
-						items[1].Quantity,
-					).
-					WillReturnResult(pgxmock.NewResult("INSERT", 1))
-			},
-			wantErr: nil,
-		},
-		{
-			name: "batch error on first item",
-			prepare: func() {
-				mock.ExpectExec(`INSERT INTO order_items`).
-					WithArgs(
-						items[0].ID,
-						items[0].OrderID,
-						items[0].ProductID,
-						items[0].ProductPrice,
-						items[0].Quantity,
-					).
-					WillReturnError(errors.New("batch error"))
-			},
-			wantErr: errors.New("batch error"),
-		},
-		{
-			name: "batch error on second item",
-			prepare: func() {
-				mock.ExpectExec(`INSERT INTO order_items`).
-					WithArgs(
-						items[0].ID,
-						items[0].OrderID,
-						items[0].ProductID,
-						items[0].ProductPrice,
-						items[0].Quantity,
-					).
-					WillReturnResult(pgxmock.NewResult("INSERT", 1))
+	require.NoError(t, err)
 
-				mock.ExpectExec(`INSERT INTO order_items`).
-					WithArgs(
-						items[1].ID,
-						items[1].OrderID,
-						items[1].ProductID,
-						items[1].ProductPrice,
-						items[1].Quantity,
-					).
-					WillReturnError(errors.New("batch error"))
-			},
-			wantErr: errors.New("batch error"),
-		},
-	}
+	var actual []domain.OrderItem
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.prepare()
+	err = db.NewSelect().
+		Model(&actual).
+		Where("order_id = ?", orderID).
+		Scan(ctx)
 
-			err := repo.CreateOrderItems(context.Background(), items)
+	require.NoError(t, err)
+	require.Len(t, actual, 3)
 
-			if tt.wantErr != nil {
-				require.Error(t, err)
-				require.ErrorContains(t, err, tt.wantErr.Error())
-			} else {
-				require.NoError(t, err)
-			}
+	require.Equal(t, items[0].ID, actual[0].ID)
+	require.Equal(t, items[0].OrderID, actual[0].OrderID)
+	require.Equal(t, items[0].ProductID, actual[0].ProductID)
+	require.Equal(t, items[0].ProductPrice, actual[0].ProductPrice)
+	require.Equal(t, items[0].Quantity, actual[0].Quantity)
 
-			require.NoError(t, mock.ExpectationsWereMet())
-		})
-	}
+	require.Equal(t, items[1].ID, actual[1].ID)
+	require.Equal(t, items[1].ProductID, actual[1].ProductID)
+	require.Equal(t, items[1].ProductPrice, actual[1].ProductPrice)
+	require.Equal(t, items[1].Quantity, actual[1].Quantity)
+
+	require.Equal(t, items[2].ID, actual[2].ID)
+	require.Equal(t, items[2].ProductID, actual[2].ProductID)
+	require.Equal(t, items[2].ProductPrice, actual[2].ProductPrice)
+	require.Equal(t, items[2].Quantity, actual[2].Quantity)
+
+	t.Cleanup(func() {
+		_, _ = db.NewDelete().
+			Model((*domain.OrderItem)(nil)).
+			Where("order_id = ?", orderID).
+			Exec(ctx)
+	})
+}
+
+func TestOrderRepository_CreateOrderItems_Empty(t *testing.T) {
+	repo, _ := newOrderTestRepository(t)
+
+	err := repo.CreateOrderItems(
+		context.Background(),
+		[]domain.OrderItem{},
+	)
+
+	require.NoError(t, err)
 }
 
 func TestOrderRepository_GetOrderByID(t *testing.T) {
-	t.Parallel()
+	repo, db := newOrderTestRepository(t)
 
-	repo, mock := newTestOrderRepository(t)
+	ctx := context.Background()
 
-	orderID := uuid.New()
-	now := time.Now()
-	deliveryDate := now.Add(5 * 24 * time.Hour)
-
-	tests := []struct {
-		name    string
-		prepare func()
-		check   func(t *testing.T, order *domain.Order)
-		wantErr error
-	}{
-		{
-			name: "success",
-			prepare: func() {
-				rows := pgxmock.NewRows([]string{
-					"id", "user_id", "status", "total_price", "created_at", "delivery_date",
-				})
-
-				rows.AddRow(
-					orderID,
-					uuid.New(),
-					domain.Status("pending"),
-					int64(150000),
-					now,
-					deliveryDate,
-				)
-
-				mock.ExpectQuery(`SELECT id, user_id, status, total_price, created_at, delivery_date`).
-					WithArgs(orderID).
-					WillReturnRows(rows)
-			},
-			check: func(t *testing.T, order *domain.Order) {
-				require.NotNil(t, order)
-				require.Equal(t, orderID, order.ID)
-				require.Equal(t, domain.Status("pending"), order.Status)
-				require.Equal(t, int64(150000), order.Total)
-			},
-			wantErr: nil,
-		},
-		{
-			name: "order not found",
-			prepare: func() {
-				mock.ExpectQuery(`SELECT id, user_id, status, total_price, created_at, delivery_date`).
-					WithArgs(orderID).
-					WillReturnError(pgx.ErrNoRows)
-			},
-			check: func(t *testing.T, order *domain.Order) {
-				require.Nil(t, order)
-			},
-			wantErr: domain.ErrOrderNotFound,
-		},
-		{
-			name: "db error",
-			prepare: func() {
-				mock.ExpectQuery(`SELECT id, user_id, status, total_price, created_at, delivery_date`).
-					WithArgs(orderID).
-					WillReturnError(errors.New("db error"))
-			},
-			check: func(t *testing.T, order *domain.Order) {
-				require.Nil(t, order)
-			},
-			wantErr: errors.New("db error"),
-		},
+	order := &domain.Order{
+		ID:           uuid.New(),
+		UserID:       uuid.New(),
+		Status:       domain.StatusCreated,
+		Total:        1500,
+		CreatedAt:    time.Now().Truncate(time.Microsecond),
+		DeliveryDate: time.Now().Add(48 * time.Hour).Truncate(time.Microsecond),
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.prepare()
+	_, err := db.NewInsert().
+		Model(order).
+		Exec(ctx)
 
-			order, err := repo.GetOrderByID(context.Background(), orderID)
+	require.NoError(t, err)
 
-			if tt.wantErr != nil {
-				require.Error(t, err)
-				require.ErrorContains(t, err, tt.wantErr.Error())
-			} else {
-				require.NoError(t, err)
-			}
+	result, err := repo.GetOrderByID(ctx, order.ID)
 
-			if tt.check != nil {
-				tt.check(t, order)
-			}
+	require.NoError(t, err)
+	require.NotNil(t, result)
 
-			require.NoError(t, mock.ExpectationsWereMet())
-		})
-	}
+	require.Equal(t, order.ID, result.ID)
+	require.Equal(t, order.UserID, result.UserID)
+	require.Equal(t, order.Status, result.Status)
+	require.Equal(t, order.Total, result.Total)
+	require.WithinDuration(t, order.CreatedAt, result.CreatedAt, time.Second)
+	require.WithinDuration(t, order.DeliveryDate, result.DeliveryDate, time.Second)
+
+	t.Cleanup(func() {
+		_, _ = db.NewDelete().
+			Model((*domain.Order)(nil)).
+			Where("id = ?", order.ID).
+			Exec(ctx)
+	})
+}
+
+func TestOrderRepository_GetOrderByID_NotFound(t *testing.T) {
+	repo, _ := newOrderTestRepository(t)
+
+	ctx := context.Background()
+
+	order, err := repo.GetOrderByID(ctx, uuid.New())
+
+	require.Nil(t, order)
+	require.ErrorIs(t, err, domain.ErrOrderNotFound)
 }
 
 func TestOrderRepository_GetOrderItems(t *testing.T) {
-	t.Parallel()
+	repo, db := newOrderTestRepository(t)
 
-	repo, mock := newTestOrderRepository(t)
+	ctx := context.Background()
 
 	orderID := uuid.New()
+	otherOrderID := uuid.New()
 
-	tests := []struct {
-		name    string
-		prepare func()
-		check   func(t *testing.T, items []domain.OrderItem)
-		wantErr error
-	}{
+	order1 := &domain.Order{
+		ID:           orderID,
+		UserID:       uuid.New(),
+		Status:       domain.StatusCreated,
+		Total:        700,
+		CreatedAt:    time.Now(),
+		DeliveryDate: time.Now().Add(48 * time.Hour),
+	}
+	_, err := db.NewInsert().Model(order1).Exec(ctx)
+	require.NoError(t, err)
+
+	order2 := &domain.Order{
+		ID:           otherOrderID,
+		UserID:       uuid.New(),
+		Status:       domain.StatusCreated,
+		Total:        9990,
+		CreatedAt:    time.Now(),
+		DeliveryDate: time.Now().Add(48 * time.Hour),
+	}
+	_, err = db.NewInsert().Model(order2).Exec(ctx)
+	require.NoError(t, err)
+
+	items := []domain.OrderItem{
 		{
-			name: "success",
-			prepare: func() {
-				rows := pgxmock.NewRows([]string{
-					"id", "order_id", "product_id", "product_price", "quantity",
-				})
-
-				rows.AddRow(
-					uuid.New(),
-					orderID,
-					uuid.New(),
-					int64(50000),
-					1,
-				)
-
-				rows.AddRow(
-					uuid.New(),
-					orderID,
-					uuid.New(),
-					int64(100000),
-					2,
-				)
-
-				mock.ExpectQuery(`SELECT id, order_id, product_id, product_price, quantity`).
-					WithArgs(orderID).
-					WillReturnRows(rows)
-			},
-			check: func(t *testing.T, items []domain.OrderItem) {
-				require.Len(t, items, 2)
-				require.Equal(t, orderID, items[0].OrderID)
-				require.Equal(t, int64(50000), items[0].ProductPrice)
-				require.Equal(t, 1, items[0].Quantity)
-				require.Equal(t, orderID, items[1].OrderID)
-				require.Equal(t, int64(100000), items[1].ProductPrice)
-				require.Equal(t, 2, items[1].Quantity)
-			},
-			wantErr: nil,
+			ID:           uuid.New(),
+			OrderID:      orderID,
+			ProductID:    uuid.New(),
+			ProductPrice: 100,
+			Quantity:     2,
 		},
 		{
-			name: "empty items",
-			prepare: func() {
-				rows := pgxmock.NewRows([]string{
-					"id", "order_id", "product_id", "product_price", "quantity",
-				})
-
-				mock.ExpectQuery(`SELECT id, order_id, product_id, product_price, quantity`).
-					WithArgs(orderID).
-					WillReturnRows(rows)
-			},
-			check: func(t *testing.T, items []domain.OrderItem) {
-				require.Empty(t, items)
-			},
-			wantErr: nil,
+			ID:           uuid.New(),
+			OrderID:      orderID,
+			ProductID:    uuid.New(),
+			ProductPrice: 500,
+			Quantity:     1,
 		},
 		{
-			name: "query error",
-			prepare: func() {
-				mock.ExpectQuery(`SELECT id, order_id, product_id, product_price, quantity`).
-					WithArgs(orderID).
-					WillReturnError(errors.New("db error"))
-			},
-			wantErr: errors.New("db error"),
+			ID:           uuid.New(),
+			OrderID:      otherOrderID,
+			ProductID:    uuid.New(),
+			ProductPrice: 999,
+			Quantity:     10,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.prepare()
+	_, err = db.NewInsert().
+		Model(&items).
+		Exec(ctx)
 
-			items, err := repo.GetOrderItems(context.Background(), orderID)
+	require.NoError(t, err)
 
-			if tt.wantErr != nil {
-				require.Error(t, err)
-				require.ErrorContains(t, err, tt.wantErr.Error())
-			} else {
-				require.NoError(t, err)
-			}
+	result, err := repo.GetOrderItems(ctx, orderID)
 
-			if tt.check != nil {
-				tt.check(t, items)
-			}
+	require.NoError(t, err)
+	require.Len(t, result, 2)
 
-			require.NoError(t, mock.ExpectationsWereMet())
-		})
-	}
+	require.Equal(t, items[0].ID, result[0].ID)
+	require.Equal(t, items[0].OrderID, result[0].OrderID)
+	require.Equal(t, items[0].ProductID, result[0].ProductID)
+	require.Equal(t, items[0].ProductPrice, result[0].ProductPrice)
+	require.Equal(t, items[0].Quantity, result[0].Quantity)
+
+	require.Equal(t, items[1].ID, result[1].ID)
+	require.Equal(t, items[1].OrderID, result[1].OrderID)
+	require.Equal(t, items[1].ProductID, result[1].ProductID)
+	require.Equal(t, items[1].ProductPrice, result[1].ProductPrice)
+	require.Equal(t, items[1].Quantity, result[1].Quantity)
+
+	t.Cleanup(func() {
+		_, _ = db.NewDelete().
+			Model((*domain.OrderItem)(nil)).
+			Where("order_id IN (?, ?)", orderID, otherOrderID).
+			Exec(ctx)
+	})
 }
 
+func TestOrderRepository_GetOrderItems_Empty(t *testing.T) {
+	repo, _ := newOrderTestRepository(t)
+
+	ctx := context.Background()
+
+	items, err := repo.GetOrderItems(ctx, uuid.New())
+
+	require.NoError(t, err)
+	require.Empty(t, items)
+}
+
+func TestOrderRepository_Transaction_Commit(t *testing.T) {
+	repo, db := newOrderTestRepository(t)
+
+	ctx := context.Background()
+
+	order := &domain.Order{
+		ID:           uuid.New(),
+		UserID:       uuid.New(),
+		Status:       domain.StatusCreated,
+		Total:        2000,
+		CreatedAt:    time.Now(),
+		DeliveryDate: time.Now().Add(48 * time.Hour),
+	}
+
+	err := repo.Transaction(ctx, func(txRepo domain.OrderRepository) error {
+		return txRepo.CreateOrder(ctx, order)
+	})
+
+	require.NoError(t, err)
+
+	var actual domain.Order
+
+	err = db.NewSelect().
+		Model(&actual).
+		Where("id = ?", order.ID).
+		Scan(ctx)
+
+	require.NoError(t, err)
+
+	require.Equal(t, order.ID, actual.ID)
+	require.Equal(t, order.UserID, actual.UserID)
+	require.Equal(t, order.Status, actual.Status)
+	require.Equal(t, order.Total, actual.Total)
+
+	t.Cleanup(func() {
+		_, _ = db.NewDelete().
+			Model((*domain.Order)(nil)).
+			Where("id = ?", order.ID).
+			Exec(ctx)
+	})
+}
+
+func TestOrderRepository_Transaction_Rollback(t *testing.T) {
+	repo, db := newOrderTestRepository(t)
+
+	ctx := context.Background()
+
+	order := &domain.Order{
+		ID:           uuid.New(),
+		UserID:       uuid.New(),
+		Status:       domain.StatusCreated,
+		Total:        3000,
+		CreatedAt:    time.Now(),
+		DeliveryDate: time.Now().Add(48 * time.Hour),
+	}
+
+	expectedErr := errors.New("something went wrong")
+
+	err := repo.Transaction(ctx, func(txRepo domain.OrderRepository) error {
+		err := txRepo.CreateOrder(ctx, order)
+		require.NoError(t, err)
+
+		return expectedErr
+	})
+
+	require.ErrorIs(t, err, expectedErr)
+
+	var actual domain.Order
+
+	err = db.NewSelect().
+		Model(&actual).
+		Where("id = ?", order.ID).
+		Scan(ctx)
+
+	require.ErrorIs(t, err, sql.ErrNoRows)
+}

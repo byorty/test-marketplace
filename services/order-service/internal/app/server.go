@@ -4,10 +4,11 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/byorty/test-marketplace/services/auth"
+	"github.com/byorty/test-marketplace/services/common/auth"
+	"github.com/byorty/test-marketplace/services/common/rbac"
 	"github.com/byorty/test-marketplace/services/order-service/internal/config"
 	httptransport "github.com/byorty/test-marketplace/services/order-service/internal/transport"
-	"github.com/byorty/test-marketplace/services/rbac"
+
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )

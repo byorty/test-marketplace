@@ -1,18 +1,19 @@
-package domain
+package service
 
 import (
 	"context"
 
+	"github.com/byorty/test-marketplace/services/product-service/internal/domain"
 	"github.com/google/uuid"
 )
 
 type MockProductRepository struct {
 	
-	CreateFunc func(context.Context, *Product) error
-	GetByIDFunc func(context.Context, uuid.UUID) (*Product, error)
-	UpdateFunc func(context.Context, *Product) (*Product, error)
+	CreateFunc func(context.Context, *domain.Product) error
+	GetByIDFunc func(context.Context, uuid.UUID) (*domain.Product, error)
+	UpdateFunc func(context.Context, *domain.Product) (*domain.Product, error)
 	DeleteFunc func(context.Context, uuid.UUID) error
-	ListFunc func(context.Context, ListFilter) (*ProductList, error)
+	ListFunc func(context.Context, domain.ListFilter) (*domain.ProductList, error)
 
 	CreateCalls int
 	GetByIDCalls int
@@ -21,7 +22,7 @@ type MockProductRepository struct {
 	ListCalls int
 }
 
-func (m *MockProductRepository) Create(ctx context.Context, product *Product) error {
+func (m *MockProductRepository) Create(ctx context.Context, product *domain.Product) error {
 	m.CreateCalls++
 
 	if m.CreateFunc == nil {
@@ -31,7 +32,7 @@ func (m *MockProductRepository) Create(ctx context.Context, product *Product) er
 	return m.CreateFunc(ctx, product)
 }
 
-func (m *MockProductRepository) GetByID(ctx context.Context, id uuid.UUID) (*Product, error) {
+func (m *MockProductRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Product, error) {
 	m.GetByIDCalls++
 
 	if m.GetByIDFunc == nil {
@@ -41,7 +42,7 @@ func (m *MockProductRepository) GetByID(ctx context.Context, id uuid.UUID) (*Pro
 	return m.GetByIDFunc(ctx, id)
 }
 
-func (m *MockProductRepository) Update(ctx context.Context, product *Product) (*Product, error) {
+func (m *MockProductRepository) Update(ctx context.Context, product *domain.Product) (*domain.Product, error) {
 	m.UpdateCalls++
 
 	if m.UpdateFunc == nil {
@@ -61,7 +62,7 @@ func (m *MockProductRepository) Delete(ctx context.Context, id uuid.UUID) error 
 	return m.DeleteFunc(ctx, id)
 }
 
-func (m *MockProductRepository) List(ctx context.Context, filter ListFilter) (*ProductList, error) {
+func (m *MockProductRepository) List(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
 	m.ListCalls++
 
 	if m.ListFunc == nil {

@@ -1,25 +1,26 @@
-package domain
+package service
 
 import (
 	"context"
 
 	"github.com/byorty/test-marketplace/services/order-service/internal/client/product"
+	"github.com/byorty/test-marketplace/services/order-service/internal/domain"
 	"github.com/google/uuid"
 )
 
 type MockOrderRepository struct {
 	
-	AddToCartFn func(ctx context.Context, item *CartItem) error
-	GetCartFn func(ctx context.Context, userID uuid.UUID) ([]CartItem, error)
+	AddToCartFn func(ctx context.Context, item *domain.CartItem) error
+	GetCartFn func(ctx context.Context, userID uuid.UUID) ([]domain.CartItem, error)
 	RemoveFromCartFn func(ctx context.Context, userID uuid.UUID, productID uuid.UUID) error
 	ClearCartFn func(ctx context.Context, userID uuid.UUID) error
 
-	CreateOrderFn func(ctx context.Context, order *Order) error
-	CreateOrderItemsFn func(ctx context.Context, items []OrderItem) error
-	GetOrderByIDFn func(ctx context.Context, id uuid.UUID) (*Order, error)
-	GetOrderItemsFn func(ctx context.Context, orderID uuid.UUID) ([]OrderItem, error)
+	CreateOrderFn func(ctx context.Context, order *domain.Order) error
+	CreateOrderItemsFn func(ctx context.Context, items []domain.OrderItem) error
+	GetOrderByIDFn func(ctx context.Context, id uuid.UUID) (*domain.Order, error)
+	GetOrderItemsFn func(ctx context.Context, orderID uuid.UUID) ([]domain.OrderItem, error)
 
-	TransactionFn func(ctx context.Context, fn func(repo OrderRepository) error) error
+	TransactionFn func(ctx context.Context, fn func(repo domain.OrderRepository) error) error
 
 	AddToCartFnCalls int
 	GetCartFnCalls int
@@ -33,11 +34,11 @@ type MockOrderRepository struct {
 
 	TransactionFnCalls int
 
-	Self OrderRepository
+	Self domain.OrderRepository
 }
 
 
-func (m *MockOrderRepository) AddToCart(ctx context.Context, item *CartItem) error {
+func (m *MockOrderRepository) AddToCart(ctx context.Context, item *domain.CartItem) error {
 	m.AddToCartFnCalls++
 
 	if m.AddToCartFn == nil {
@@ -47,7 +48,7 @@ func (m *MockOrderRepository) AddToCart(ctx context.Context, item *CartItem) err
 	return m.AddToCartFn(ctx, item)
 }
 
-func (m *MockOrderRepository) GetCart(ctx context.Context, userID uuid.UUID) ([]CartItem, error) {
+func (m *MockOrderRepository) GetCart(ctx context.Context, userID uuid.UUID) ([]domain.CartItem, error) {
 	m.GetCartFnCalls++
 
 	if m.GetCartFn == nil {
@@ -77,7 +78,7 @@ func (m *MockOrderRepository) ClearCart(ctx context.Context, userID uuid.UUID) e
 	return m.ClearCartFn(ctx, userID)
 }
 
-func (m *MockOrderRepository) CreateOrder(ctx context.Context, order *Order) error {
+func (m *MockOrderRepository) CreateOrder(ctx context.Context, order *domain.Order) error {
 	m.CreateOrderFnCalls++
 
 	if m.CreateOrderFn == nil {
@@ -87,7 +88,7 @@ func (m *MockOrderRepository) CreateOrder(ctx context.Context, order *Order) err
 	return m.CreateOrderFn(ctx, order)
 }
 
-func (m *MockOrderRepository) CreateOrderItems(ctx context.Context, items []OrderItem) error {
+func (m *MockOrderRepository) CreateOrderItems(ctx context.Context, items []domain.OrderItem) error {
 	m.CreateOrderItemsFnCalls++
 
 	if m.CreateOrderItemsFn == nil {
@@ -97,7 +98,7 @@ func (m *MockOrderRepository) CreateOrderItems(ctx context.Context, items []Orde
 	return m.CreateOrderItemsFn(ctx, items)
 }
 
-func (m *MockOrderRepository) GetOrderByID(ctx context.Context, id uuid.UUID) (*Order, error) {
+func (m *MockOrderRepository) GetOrderByID(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
 	m.GetOrderByIDFnCalls++
 
 	if m.GetOrderByIDFn == nil {
@@ -107,7 +108,7 @@ func (m *MockOrderRepository) GetOrderByID(ctx context.Context, id uuid.UUID) (*
 	return m.GetOrderByIDFn(ctx, id)
 }
 
-func (m *MockOrderRepository) GetOrderItems(ctx context.Context, orderID uuid.UUID) ([]OrderItem, error) {
+func (m *MockOrderRepository) GetOrderItems(ctx context.Context, orderID uuid.UUID) ([]domain.OrderItem, error) {
 	m.GetOrderItemsFnCalls++
 
 	if m.GetOrderItemsFn == nil {
@@ -117,7 +118,7 @@ func (m *MockOrderRepository) GetOrderItems(ctx context.Context, orderID uuid.UU
 	return m.GetOrderItemsFn(ctx, orderID)
 }
 
-func (m *MockOrderRepository) Transaction(ctx context.Context, fn func(repo OrderRepository) error) error {
+func (m *MockOrderRepository) Transaction(ctx context.Context, fn func(repo domain.OrderRepository) error) error {
 	m.TransactionFnCalls++
 
 	if m.TransactionFn == nil {
@@ -128,7 +129,7 @@ func (m *MockOrderRepository) Transaction(ctx context.Context, fn func(repo Orde
 		m.Self = m
 	}
 
-	return m.TransactionFn(ctx, func(repo OrderRepository) error {
+	return m.TransactionFn(ctx, func(repo domain.OrderRepository) error {
 		return fn(m.Self)
 	})
 }
