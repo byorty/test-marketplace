@@ -1,5 +1,13 @@
-jwt:
-  issuer: marketplace
-  public_key_path: keys/public.pem
+postgres:
+  host: ${POSTGRES_HOST}
+  port: ${POSTGRES_PORT}
+  database: ${POSTGRES_DB}
+  user: ${POSTGRES_USER}
+  password: ${POSTGRES_PASSWORD}
+  sslmode: ${POSTGRES_SSLMODE}
 
-product_service_url: "http://product-service:8080"
+jwt:
+  issuer: ${JWT_ISSUER}
+  public_key_path: ${JWT_PUBLIC_KEY_PATH}
+
+product_service_url: ${PRODUCT_SERVICE_URL}
