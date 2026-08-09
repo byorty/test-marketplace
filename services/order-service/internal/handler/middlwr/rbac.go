@@ -1,6 +1,7 @@
 package middlwr
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -18,33 +19,23 @@ func NewAuthorization(a *rbac.Authorizer) *Authorization {
 	}
 }
 
-func (m *Authorization) Handler(next http.Handler) http.Handler {
+func (a *Authorization) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		if r.Method == http.MethodGet {
-			next.ServeHTTP(w, r)
-			return
-		}
-
+		
 		claims, ok := auth.ClaimsFromContext(r.Context())
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
+			return 
 		}
 
 		resource, action := permission(r)
 
-		if err := m.authorizer.Authorize(
-			claims.Role,
-			resource,
-			action,
-		); err != nil {
-
+		if err := a.authorizer.Authorize(claims.Role, resource, action); err != nil {
 			http.Error(w, "forbidden", http.StatusForbidden)
-			return
+			return 
 		}
 
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), struct{}{}, claims)))
 	})
 }
 

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/byorty/test-marketplace/services/auth"
+	"github.com/byorty/test-marketplace/services/common/auth"
 )
 
 type Auth struct {

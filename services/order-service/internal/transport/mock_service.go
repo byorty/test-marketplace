@@ -1,17 +1,18 @@
-package domain
+package transport
 
 import (
 	"context"
 
+	"github.com/byorty/test-marketplace/services/order-service/internal/domain"
 	"github.com/google/uuid"
 )
 
 type MockOrderService struct {
-	AddToCartFunc      func(ctx context.Context, item *CartItem) error
-	GetCartFunc        func(ctx context.Context, userID uuid.UUID) (*Cart, error)
+	AddToCartFunc      func(ctx context.Context, item *domain.CartItem) error
+	GetCartFunc        func(ctx context.Context, userID uuid.UUID) (*domain.Cart, error)
 	RemoveFromCartFunc func(ctx context.Context, userID uuid.UUID, productID uuid.UUID) error
-	GetOrderByIDFunc   func(ctx context.Context, id uuid.UUID) (*Order, error)
-	CreateOrderFunc    func(ctx context.Context, userID uuid.UUID) (*Order, error)
+	GetOrderByIDFunc   func(ctx context.Context, id uuid.UUID) (*domain.Order, error)
+	CreateOrderFunc    func(ctx context.Context, userID uuid.UUID) (*domain.Order, error)
 
 	AddToCartCalls      int
 	GetCartCalls        int
@@ -20,7 +21,7 @@ type MockOrderService struct {
 	CreateOrderCalls    int
 }
 
-func (m *MockOrderService) AddToCart(ctx context.Context, item *CartItem) error {
+func (m *MockOrderService) AddToCart(ctx context.Context, item *domain.CartItem) error {
 	m.AddToCartCalls++
 
 	if m.AddToCartFunc != nil {
@@ -30,7 +31,7 @@ func (m *MockOrderService) AddToCart(ctx context.Context, item *CartItem) error 
 	return nil
 }
 
-func (m *MockOrderService) GetCart(ctx context.Context, userID uuid.UUID) (*Cart, error) {
+func (m *MockOrderService) GetCart(ctx context.Context, userID uuid.UUID) (*domain.Cart, error) {
 	m.GetCartCalls++
 
 	if m.GetCartFunc != nil {
@@ -50,7 +51,7 @@ func (m *MockOrderService) RemoveFromCart(ctx context.Context, userID uuid.UUID,
 	return nil
 }
 
-func (m *MockOrderService) GetOrderByID(ctx context.Context, id uuid.UUID) (*Order, error) {
+func (m *MockOrderService) GetOrderByID(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
 	m.GetOrderByIDCalls++
 
 	if m.GetOrderByIDFunc != nil {
@@ -60,7 +61,7 @@ func (m *MockOrderService) GetOrderByID(ctx context.Context, id uuid.UUID) (*Ord
 	return nil, nil
 }
 
-func (m *MockOrderService) CreateOrder(ctx context.Context, userID uuid.UUID) (*Order, error) {
+func (m *MockOrderService) CreateOrder(ctx context.Context, userID uuid.UUID) (*domain.Order, error) {
 	m.CreateOrderCalls++
 
 	if m.CreateOrderFunc != nil {

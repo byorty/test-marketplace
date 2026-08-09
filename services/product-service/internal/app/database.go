@@ -3,11 +3,11 @@ package app
 import (
 	"github.com/byorty/test-marketplace/services/product-service/internal/config"
 	"github.com/byorty/test-marketplace/services/product-service/internal/database"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/uptrace/bun"
 	"go.uber.org/fx"
 )
 
-func NewDB(cfg *config.Config) (*pgxpool.Pool, error) {
+func NewDB(cfg *config.Config) (*bun.DB, error) {
 	return database.New(cfg.Postgres)
 }
 

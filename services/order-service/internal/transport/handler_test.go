@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/byorty/test-marketplace/services/auth"
+	"github.com/byorty/test-marketplace/services/common/auth"
+	rbac "github.com/byorty/test-marketplace/services/common/rbac"
 	"github.com/byorty/test-marketplace/services/order-service/internal/domain"
 	api "github.com/byorty/test-marketplace/services/order-service/internal/generated/openapi"
 	"github.com/byorty/test-marketplace/services/order-service/internal/service"
-	rbac "github.com/byorty/test-marketplace/services/rbac"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -46,7 +46,7 @@ func TestHandler_AddToCart(t *testing.T) {
 		name        string
 		req         api.AddToCartRequestObject
 		ctx         context.Context
-		mock        *domain.MockOrderService
+		mock        *MockOrderService
 		checkResult func(t *testing.T, resp api.AddToCartResponseObject)
 	}{
 		{
@@ -60,7 +60,7 @@ func TestHandler_AddToCart(t *testing.T) {
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
 				UserID: userID,
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				AddToCartFunc: func(ctx context.Context, item *domain.CartItem) error {
 					require.Equal(t, userID, item.UserID)
 					require.Equal(t, productID, item.ProductID)
@@ -82,7 +82,7 @@ func TestHandler_AddToCart(t *testing.T) {
 				},
 			},
 			ctx: context.Background(),
-			mock: &domain.MockOrderService{},
+			mock: &MockOrderService{},
 			checkResult: func(t *testing.T, resp api.AddToCartResponseObject) {
 				require.IsType(t, api.AddToCart401JSONResponse{}, resp)
 			},
@@ -98,7 +98,7 @@ func TestHandler_AddToCart(t *testing.T) {
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
 				UserID: userID,
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				AddToCartFunc: func(ctx context.Context, item *domain.CartItem) error {
 					return service.ErrInvalidInput
 				},
@@ -118,7 +118,7 @@ func TestHandler_AddToCart(t *testing.T) {
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
 				UserID: userID,
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				AddToCartFunc: func(ctx context.Context, item *domain.CartItem) error {
 					return service.ErrProductNotFound
 				},
@@ -138,7 +138,7 @@ func TestHandler_AddToCart(t *testing.T) {
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
 				UserID: userID,
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				AddToCartFunc: func(ctx context.Context, item *domain.CartItem) error {
 					return srvcError
 				},
@@ -191,7 +191,7 @@ func TestHandler_CreateOrder(t *testing.T) {
 		name        string
 		req         api.CreateOrderRequestObject
 		ctx         context.Context
-		mock        *domain.MockOrderService
+		mock        *MockOrderService
 		checkResult func(t *testing.T, resp api.CreateOrderResponseObject)
 	}{
 		{
@@ -200,7 +200,7 @@ func TestHandler_CreateOrder(t *testing.T) {
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
 				UserID: userID,
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				CreateOrderFunc: func(ctx context.Context, uid uuid.UUID) (*domain.Order, error) {
 					require.Equal(t, userID, uid)
 					return &domain.Order{
@@ -224,7 +224,7 @@ func TestHandler_CreateOrder(t *testing.T) {
 			name: "unauthorized - no claims",
 			req:  api.CreateOrderRequestObject{},
 			ctx:  context.Background(),
-			mock: &domain.MockOrderService{},
+			mock: &MockOrderService{},
 			checkResult: func(t *testing.T, resp api.CreateOrderResponseObject) {
 				require.IsType(t, api.CreateOrder401JSONResponse{}, resp)
 			},
@@ -235,7 +235,7 @@ func TestHandler_CreateOrder(t *testing.T) {
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
 				UserID: userID,
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				CreateOrderFunc: func(ctx context.Context, uid uuid.UUID) (*domain.Order, error) {
 					return nil, service.ErrInvalidUserID
 				},
@@ -250,7 +250,7 @@ func TestHandler_CreateOrder(t *testing.T) {
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
 				UserID: userID,
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				CreateOrderFunc: func(ctx context.Context, uid uuid.UUID) (*domain.Order, error) {
 					return nil, domain.ErrCartEmpty
 				},
@@ -265,7 +265,7 @@ func TestHandler_CreateOrder(t *testing.T) {
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
 				UserID: userID,
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				CreateOrderFunc: func(ctx context.Context, uid uuid.UUID) (*domain.Order, error) {
 					return nil, srvcError
 				},
@@ -320,7 +320,7 @@ func TestHandler_GetCart(t *testing.T) {
 		name        string
 		req         api.GetCartRequestObject
 		ctx         context.Context
-		mock        *domain.MockOrderService
+		mock        *MockOrderService
 		checkResult func(t *testing.T, resp api.GetCartResponseObject)
 	}{
 		{
@@ -329,7 +329,7 @@ func TestHandler_GetCart(t *testing.T) {
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
 				UserID: userID,
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				GetCartFunc: func(ctx context.Context, uid uuid.UUID) (*domain.Cart, error) {
 					require.Equal(t, userID, uid)
 					return &domain.Cart{
@@ -368,7 +368,7 @@ func TestHandler_GetCart(t *testing.T) {
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
 				UserID: userID,
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				GetCartFunc: func(ctx context.Context, uid uuid.UUID) (*domain.Cart, error) {
 					return &domain.Cart{
 						Items:      []domain.CartItem{},
@@ -387,7 +387,7 @@ func TestHandler_GetCart(t *testing.T) {
 			name: "unauthorized - no claims",
 			req:  api.GetCartRequestObject{},
 			ctx:  context.Background(),
-			mock: &domain.MockOrderService{},
+			mock: &MockOrderService{},
 			checkResult: func(t *testing.T, resp api.GetCartResponseObject) {
 				require.IsType(t, api.GetCart401JSONResponse{}, resp)
 			},
@@ -398,7 +398,7 @@ func TestHandler_GetCart(t *testing.T) {
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
 				UserID: userID,
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				GetCartFunc: func(ctx context.Context, uid uuid.UUID) (*domain.Cart, error) {
 					return nil, srvcError
 				},
@@ -459,7 +459,7 @@ func TestHandler_GetOrderByID(t *testing.T) {
 		name        string
 		req         api.GetOrderByIDRequestObject
 		ctx         context.Context
-		mock        *domain.MockOrderService
+		mock        *MockOrderService
 		authorizer  domain.Authorizer
 		checkResult func(t *testing.T, resp api.GetOrderByIDResponseObject)
 	}{
@@ -472,7 +472,7 @@ func TestHandler_GetOrderByID(t *testing.T) {
 				UserID: userID,
 				Role:   "user",
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				GetOrderByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
 					require.Equal(t, orderID, id)
 					return &domain.Order{
@@ -526,7 +526,7 @@ func TestHandler_GetOrderByID(t *testing.T) {
 				UserID: uuid.New(),
 				Role:   "employee",
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				GetOrderByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
 					return &domain.Order{
 						ID:           orderID,
@@ -551,7 +551,7 @@ func TestHandler_GetOrderByID(t *testing.T) {
 				Id: orderID,
 			},
 			ctx:        context.Background(),
-			mock:       &domain.MockOrderService{},
+			mock:       &MockOrderService{},
 			authorizer: allowAll,
 			checkResult: func(t *testing.T, resp api.GetOrderByIDResponseObject) {
 				require.IsType(t, api.GetOrderByID401JSONResponse{}, resp)
@@ -566,7 +566,7 @@ func TestHandler_GetOrderByID(t *testing.T) {
 				UserID: userID,
 				Role:   "guest",
 			}),
-			mock:       &domain.MockOrderService{},
+			mock:       &MockOrderService{},
 			authorizer: denyAll,
 			checkResult: func(t *testing.T, resp api.GetOrderByIDResponseObject) {
 				require.IsType(t, api.GetOrderByID403JSONResponse{}, resp)
@@ -581,7 +581,7 @@ func TestHandler_GetOrderByID(t *testing.T) {
 				UserID: uuid.New(),
 				Role:   "user",
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				GetOrderByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
 					return &domain.Order{
 						ID:     orderID,
@@ -605,7 +605,7 @@ func TestHandler_GetOrderByID(t *testing.T) {
 				UserID: userID,
 				Role:   "user",
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				GetOrderByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
 					return nil, domain.ErrOrderNotFound
 				},
@@ -624,7 +624,7 @@ func TestHandler_GetOrderByID(t *testing.T) {
 				UserID: userID,
 				Role:   "user",
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				GetOrderByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
 					return nil, srvcError
 				},
@@ -679,7 +679,7 @@ func TestHandler_RemoveFromCart(t *testing.T) {
 		name        string
 		req         api.RemoveFromCartRequestObject
 		ctx         context.Context
-		mock        *domain.MockOrderService
+		mock        *MockOrderService
 		checkResult func(t *testing.T, resp api.RemoveFromCartResponseObject)
 	}{
 		{
@@ -690,7 +690,7 @@ func TestHandler_RemoveFromCart(t *testing.T) {
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
 				UserID: userID,
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				RemoveFromCartFunc: func(ctx context.Context, uid uuid.UUID, pid uuid.UUID) error {
 					require.Equal(t, userID, uid)
 					require.Equal(t, productID, pid)
@@ -708,7 +708,7 @@ func TestHandler_RemoveFromCart(t *testing.T) {
 				ProductId: productID,
 			},
 			ctx:  context.Background(),
-			mock: &domain.MockOrderService{},
+			mock: &MockOrderService{},
 			checkResult: func(t *testing.T, resp api.RemoveFromCartResponseObject) {
 				require.IsType(t, api.RemoveFromCart401JSONResponse{}, resp)
 			},
@@ -721,7 +721,7 @@ func TestHandler_RemoveFromCart(t *testing.T) {
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
 				UserID: userID,
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				RemoveFromCartFunc: func(ctx context.Context, uid uuid.UUID, pid uuid.UUID) error {
 					return domain.ErrCartItemNotFound
 				},
@@ -738,7 +738,7 @@ func TestHandler_RemoveFromCart(t *testing.T) {
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
 				UserID: userID,
 			}),
-			mock: &domain.MockOrderService{
+			mock: &MockOrderService{
 				RemoveFromCartFunc: func(ctx context.Context, uid uuid.UUID, pid uuid.UUID) error {
 					return srvcError
 				},

@@ -2,14 +2,17 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/byorty/test-marketplace/services/product-service/internal/config"
-	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
 )
 
-func New(cfg config.PostgresConfig) (*pgxpool.Pool, error) {
+func New(cfg config.PostgresConfig) (*bun.DB, error) {
 	dsn := fmt.Sprintf(
 		"postgres://%s:%d@%s:%s/%s?sslmode=%s",
 		cfg.Host,
@@ -20,28 +23,28 @@ func New(cfg config.PostgresConfig) (*pgxpool.Pool, error) {
 		cfg.SSLMode,
 	)
 
-	poolConfig, err := pgxpool.ParseConfig(dsn)
+	sqlDB, err := sql.Open("pgx", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("parse postgres config: %w", err)
+		return nil, fmt.Errorf("open postgres: %w", err)
 	}
-	
-	poolConfig.MaxConns = int32(cfg.MaxOpenConns)
-	poolConfig.MinConns = int32(cfg.MaxIdleConns)
-	poolConfig.MaxConnLifetime = cfg.ConnMaxLifetime
-	poolConfig.MaxConnIdleTime = cfg.ConnMaxIdleTime
 
-	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
-	if err != nil {
-		return nil, fmt.Errorf("create postgres pool: %w", err)
-	}
+	sqlDB.SetMaxOpenConns(cfg.MaxOpenConns)
+	sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
+	sqlDB.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+	sqlDB.SetConnMaxIdleTime(cfg.ConnMaxIdleTime)
+
+	db := bun.NewDB(
+		sqlDB,
+		pgdialect.New(),
+	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := pool.Ping(ctx); err != nil {
-		pool.Close()
+	if err := db.PingContext(ctx); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("ping postgres: %w", err)
 	}
 
-	return pool, nil
+	return db, nil
 }

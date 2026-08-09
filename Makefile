@@ -1,4 +1,4 @@
-ENV_FILE ?= .env.dev
+ENV_FILE ?= .env
 
 -include $(ENV_FILE)
 export

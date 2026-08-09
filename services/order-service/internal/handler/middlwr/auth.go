@@ -11,39 +11,35 @@ type Auth struct {
 	validator *auth.Validator
 }
 
-func NewAuth(v *auth.Validator) *Auth {
+func NewAuth(validator *auth.Validator) *Auth {
 	return &Auth{
-		validator: v,
+		validator: validator,
 	}
 }
 
-func (m *Auth) Handler(next http.Handler) http.Handler {
+func (a *Auth) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		if r.Method == http.MethodGet {
-			next.ServeHTTP(w, r)
-			return
-		}
-
 		header := r.Header.Get("Authorization")
+
 		if header == "" {
-			http.Error(w, "missing authorization header", http.StatusUnauthorized)
-			return
+			http.Error(w, "missing autorization header", http.StatusUnauthorized)
+			return 
 		}
 
 		const prefix = "Bearer "
 
 		if !strings.HasPrefix(header, prefix) {
 			http.Error(w, "invalid authorization header", http.StatusUnauthorized)
-			return
+			return 
 		}
 
 		token := strings.TrimPrefix(header, prefix)
 
-		claims, err := m.validator.Parse(token)
+		claims, err := a.validator.Parse(token)
 		if err != nil {
 			http.Error(w, "invalid token", http.StatusUnauthorized)
-			return
+			return 
 		}
 
 		ctx := auth.ContextWithClaims(r.Context(), claims)

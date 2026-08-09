@@ -1,9 +1,3 @@
-postgres:
-  host: postgres
-  port: 5432
-  database: marketplace
-  sslmode: disable
-
 jwt:
   issuer: marketplace
   public_key_path: keys/public.pem

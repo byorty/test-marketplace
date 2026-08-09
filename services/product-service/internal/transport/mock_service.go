@@ -1,18 +1,19 @@
-package domain
+package transport
 
 import (
 	"context"
 
+	"github.com/byorty/test-marketplace/services/product-service/internal/domain"
 	api "github.com/byorty/test-marketplace/services/product-service/internal/generated"
 	"github.com/google/uuid"
 )
 
 type MockService struct {
-	CreateFunc func(context.Context, *api.ProductCreateRequest) (*Product, error)
-	GetByIDFunc func(context.Context, uuid.UUID) (*Product, error)
-	UpdateFunc func(context.Context, uuid.UUID, *api.ProductUpdateRequest) (*Product, error)
+	CreateFunc func(context.Context, *api.ProductCreateRequest) (*domain.Product, error)
+	GetByIDFunc func(context.Context, uuid.UUID) (*domain.Product, error)
+	UpdateFunc func(context.Context, uuid.UUID, *api.ProductUpdateRequest) (*domain.Product, error)
 	DeleteFunc func(context.Context, uuid.UUID) error
-	ListFunc func(context.Context, ListFilter) (*ProductList, error)
+	ListFunc func(context.Context, domain.ListFilter) (*domain.ProductList, error)
 
 	CreateCalls int
 	GetByIDCalls int
@@ -21,7 +22,7 @@ type MockService struct {
 	ListCalls int
 }
 
-func (m *MockService) Create(ctx context.Context, input *api.ProductCreateRequest) (*Product, error) {
+func (m *MockService) Create(ctx context.Context, input *api.ProductCreateRequest) (*domain.Product, error) {
 	m.CreateCalls++
 
 	if m.CreateFunc != nil {
@@ -31,7 +32,7 @@ func (m *MockService) Create(ctx context.Context, input *api.ProductCreateReques
 	return nil, nil
 }
 
-func (m *MockService) GetByID(ctx context.Context, id uuid.UUID) (*Product, error) {
+func (m *MockService) GetByID(ctx context.Context, id uuid.UUID) (*domain.Product, error) {
 	m.GetByIDCalls++
 
 	if m.GetByIDFunc != nil {
@@ -41,7 +42,7 @@ func (m *MockService) GetByID(ctx context.Context, id uuid.UUID) (*Product, erro
 	return nil, nil
 }
 
-func (m *MockService) Update(ctx context.Context, id uuid.UUID, input *api.ProductUpdateRequest) (*Product, error) {
+func (m *MockService) Update(ctx context.Context, id uuid.UUID, input *api.ProductUpdateRequest) (*domain.Product, error) {
 	m.UpdateCalls++
 
 	if m.UpdateFunc != nil {
@@ -61,7 +62,7 @@ func (m *MockService) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (m *MockService) List(ctx context.Context, filter ListFilter) (*ProductList, error) {
+func (m *MockService) List(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
 	m.ListCalls++
 
 	if m.ListFunc != nil {

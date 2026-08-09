@@ -1,7 +1,7 @@
 package app
 
 import (
-	"github.com/byorty/test-marketplace/services/auth"
+	"github.com/byorty/test-marketplace/services/common/auth"
 	"github.com/byorty/test-marketplace/services/product-service/internal/config"
 	"go.uber.org/fx"
 )

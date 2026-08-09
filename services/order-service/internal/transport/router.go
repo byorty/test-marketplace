@@ -3,10 +3,10 @@ package transport
 import (
 	"net/http"
 
-	"github.com/byorty/test-marketplace/services/auth"
+	"github.com/byorty/test-marketplace/services/common/auth"
+	"github.com/byorty/test-marketplace/services/common/rbac"
 	api "github.com/byorty/test-marketplace/services/order-service/internal/generated/openapi"
 	"github.com/byorty/test-marketplace/services/order-service/internal/transport/middlwr"
-	"github.com/byorty/test-marketplace/services/rbac"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )

@@ -1,7 +1,7 @@
 package app
 
 import (
-	"github.com/byorty/test-marketplace/services/rbac"
+	"github.com/byorty/test-marketplace/services/common/rbac"
 	"go.uber.org/fx"
 )
 

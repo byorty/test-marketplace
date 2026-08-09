@@ -20,8 +20,8 @@ type Config struct {
 }
 
 type HTTPConfig struct {
-    Host string `yaml:"host" env:"HTTP_HOST" env-required:"true"`
-    Port int `yaml:"port" env:"HTTP_PORT" env-default:"8080"`
+    Host string `yaml:"host" env:"POSTGRES_HOST" env-required:"true"`
+    Port int `yaml:"port" env:"POSTGRES_PORT" env-default:"8080"`
 }
 
 func (h HTTPConfig) Address() string {
