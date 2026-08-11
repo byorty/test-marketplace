@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"github.com/byorty/test-marketplace/services/product-service/internal/domain"
-	api "github.com/byorty/test-marketplace/services/product-service/internal/generated"
+	api "github.com/byorty/test-marketplace/services/product-service/internal/generated/openapi"
+	"github.com/go-playground/validator"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -14,12 +15,14 @@ import (
 type ProductService struct {
 	repo domain.ProductRepository
 	log *zap.Logger
+	validate *validator.Validate
 }
 
-func New(log *zap.Logger, repo domain.ProductRepository) *ProductService {
+func New(log *zap.Logger, repo domain.ProductRepository, validate *validator.Validate) *ProductService {
 	return &ProductService{
 		repo: repo,
 		log: log.Named("product-service"),
+		validate: validate,
 	}
 }
 
@@ -35,13 +38,13 @@ func (s *ProductService) Create(ctx context.Context, input *api.ProductCreateReq
 		return nil, ErrNilInput
 	}
 
-	if input.Name == "" {
+	if err := s.validate.Struct(input); err != nil {
 		s.log.Error(
 			"create product failed",
-			zap.Error(ErrInvalidProductName),
+			zap.Error(err),
 		)
 
-		return nil, ErrInvalidProductName
+		return nil, fmt.Errorf("validate product: %w", err)
 	}
 
 	now := time.Now()
@@ -59,7 +62,6 @@ func (s *ProductService) Create(ctx context.Context, input *api.ProductCreateReq
 	}
 
 	if err := s.repo.Create(ctx, p); err != nil {
-
 		s.log.Error(
 			"create product failed",
 			zap.Error(err),
@@ -182,6 +184,16 @@ func (s *ProductService) Update(ctx context.Context, id uuid.UUID, input *api.Pr
 		return nil, ErrNilInput
 	}
 
+	if err := s.validate.Struct(input); err != nil {
+		s.log.Error(
+			"update product failed",
+			zap.Error(err),
+			zap.String("product_id", id.String()),
+		)
+
+		return nil, fmt.Errorf("validate product: %w", err)
+	}
+
 	existing, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		s.log.Error(
@@ -229,6 +241,8 @@ func (s *ProductService) Update(ctx context.Context, id uuid.UUID, input *api.Pr
 
 		return nil, ErrEmptyUpdate
 	}
+
+	existing.UpdatedAt = time.Now()
 
 	updated, err := s.repo.Update(ctx, existing)
 	if err != nil {

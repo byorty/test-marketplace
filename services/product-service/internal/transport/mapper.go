@@ -2,43 +2,8 @@ package transport
 
 import (
 	"github.com/byorty/test-marketplace/services/product-service/internal/domain"
-	api "github.com/byorty/test-marketplace/services/product-service/internal/generated"
+	api "github.com/byorty/test-marketplace/services/product-service/internal/generated/openapi"
 )
-
-func toCreateInput(req api.ProductCreateRequest) *api.ProductCreateRequest {
-	return &api.ProductCreateRequest{
-		Category: req.Category,
-		Description: req.Description,
-		DeliveryDays: req.DeliveryDays,
-		Name: req.Name,
-		Price: req.Price,
-	}
-}
-
-func toUpdateInput(req api.ProductUpdateRequest) *api.ProductUpdateRequest {
-	update := &api.ProductUpdateRequest{}
-
-	if req.Name != nil {
-		update.Name = req.Name
-	}
-
-	if req.Description != nil {
-		update.Description = req.Description
-	}
-
-	if req.DeliveryDays != nil {
-		update.DeliveryDays = req.DeliveryDays
-	}
-
-	if req.Category != nil {
-		update.Category = req.Category
-	}
-
-	if req.Price != nil {
-		update.Price = req.Price
-	}
-	return update
-}
 
 func toResponse(product *domain.Product) api.ProductResponse {
 	return api.ProductResponse{
@@ -96,8 +61,8 @@ func toListFilter(params api.GetProductsParams) domain.ListFilter {
 		filter.MinRating = params.MinRating
 	}
 
-	if params.MaxDeliveryDays != nil {
-		filter.MaxDeliveryDays = params.MaxDeliveryDays
+	if params.DeliveryDays != nil {
+		filter.MaxDeliveryDays = params.DeliveryDays
 	}
 
 	if params.Page != nil {

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/byorty/test-marketplace/services/product-service/internal/domain"
-	api "github.com/byorty/test-marketplace/services/product-service/internal/generated"
+	api "github.com/byorty/test-marketplace/services/product-service/internal/generated/openapi"
 	"github.com/google/uuid"
 )
 

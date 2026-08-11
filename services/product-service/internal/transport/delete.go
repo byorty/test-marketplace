@@ -3,7 +3,7 @@ package transport
 import (
 	"context"
 
-	api "github.com/byorty/test-marketplace/services/product-service/internal/generated"
+	api "github.com/byorty/test-marketplace/services/product-service/internal/generated/openapi"
 )
 
 func (h *ProductHandler) DeleteProduct(

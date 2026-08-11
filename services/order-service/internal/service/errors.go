@@ -12,4 +12,5 @@ var (
 	ErrInvalidPrice = errors.New("invalid price")
 	ErrEmptyOrder = errors.New("order is empty")
 	ErrProductNotFound = errors.New("product not found")
+	ErrForbidden = errors.New("forbidden")
 )

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/byorty/test-marketplace/services/order-service/internal/domain"
 	"github.com/google/uuid"
@@ -25,7 +26,7 @@ func New(db *bun.DB, log *zap.Logger) *OrderRepository {
 	}
 }
 
-func (r *OrderRepository) AddToCart(ctx context.Context, item *domain.CartItem) error {
+func (r *OrderRepository) AddToCart(ctx context.Context, userID uuid.UUID, item *domain.CartItem) error {
 	log := r.log.Named("OrderRepository.AddToCart")
 
 	_, err := r.db.NewInsert().
@@ -74,13 +75,30 @@ func (r *OrderRepository) GetCart(ctx context.Context, userID uuid.UUID) ([]doma
 	return items, nil
 }
 
+func (r *OrderRepository) GetCartItem(ctx context.Context, userID, productID uuid.UUID) (*domain.CartItem, error) {
+    var item domain.CartItem
+    
+    err := r.db.NewSelect().
+        Model(&item).
+        Where("user_id = ? AND product_id = ?", userID, productID).
+        Scan(ctx)
+    
+    if err != nil {
+        if errors.Is(err, sql.ErrNoRows) {
+            return nil, domain.ErrCartItemNotFound
+        }
+        return nil, fmt.Errorf("get cart item: %w", err)
+    }
+    
+    return &item, nil
+}
+
 func (r *OrderRepository) RemoveFromCart(ctx context.Context, userID, productID uuid.UUID) error {
 	log := r.log.Named("OrderRepository.RemoveFromCart")
 
 	res, err := r.db.NewDelete().
 		Model((*domain.CartItem)(nil)).
-		Where("user_id = ?", userID).
-		Where("product_id = ?", productID).
+		Where("user_id = ? AND product_id = ?", userID, productID).
 		Exec(ctx)
 
 	if err != nil {

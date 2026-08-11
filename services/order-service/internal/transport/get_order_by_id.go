@@ -6,7 +6,6 @@ import (
 	"github.com/byorty/test-marketplace/services/common/auth"
 	rbac "github.com/byorty/test-marketplace/services/common/rbac"
 	api "github.com/byorty/test-marketplace/services/order-service/internal/generated/openapi"
-	"github.com/byorty/test-marketplace/services/order-service/internal/service"
 )
 
 func (h *OrderHandler) GetOrderByID(
@@ -31,16 +30,16 @@ func (h *OrderHandler) GetOrderByID(
         ), nil
     }
 
-    order, err := h.service.GetOrderByID(ctx, req.Id)
+    order, err := h.service.GetOrderByID(ctx, claims.UserID, req.Id)
     if err != nil {
         return mapGetOrderByIDError(h.log, err), nil
     }
-	
-   if err := service.CanAccessOrder(claims, order); err != nil { 
-	return api.GetOrderByID403JSONResponse( 
-		errorResponse("forbidden", err.Error()), 
-		), nil 
-	}
+
+    if claims.Role != "employee" && order.UserID != claims.UserID {
+        return api.GetOrderByID403JSONResponse(
+            errorResponse("forbidden", "order does not belong to user"),
+        ), nil
+    }
 
     return api.GetOrderByID200JSONResponse(
         toOrderResponse(order),

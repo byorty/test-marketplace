@@ -61,7 +61,7 @@ func TestHandler_AddToCart(t *testing.T) {
 				UserID: userID,
 			}),
 			mock: &MockOrderService{
-				AddToCartFunc: func(ctx context.Context, item *domain.CartItem) error {
+				AddToCartFunc: func(ctx context.Context, userID uuid.UUID, item *domain.CartItem) error {
 					require.Equal(t, userID, item.UserID)
 					require.Equal(t, productID, item.ProductID)
 					require.Equal(t, 2, item.Quantity)
@@ -99,7 +99,7 @@ func TestHandler_AddToCart(t *testing.T) {
 				UserID: userID,
 			}),
 			mock: &MockOrderService{
-				AddToCartFunc: func(ctx context.Context, item *domain.CartItem) error {
+				AddToCartFunc: func(ctx context.Context, userID uuid.UUID, item *domain.CartItem) error {
 					return service.ErrInvalidInput
 				},
 			},
@@ -119,7 +119,7 @@ func TestHandler_AddToCart(t *testing.T) {
 				UserID: userID,
 			}),
 			mock: &MockOrderService{
-				AddToCartFunc: func(ctx context.Context, item *domain.CartItem) error {
+				AddToCartFunc: func(ctx context.Context, userID uuid.UUID, item *domain.CartItem) error {
 					return service.ErrProductNotFound
 				},
 			},
@@ -139,7 +139,7 @@ func TestHandler_AddToCart(t *testing.T) {
 				UserID: userID,
 			}),
 			mock: &MockOrderService{
-				AddToCartFunc: func(ctx context.Context, item *domain.CartItem) error {
+				AddToCartFunc: func(ctx context.Context, userID uuid.UUID, item *domain.CartItem) error {
 					return srvcError
 				},
 			},
@@ -443,14 +443,13 @@ func TestHandler_GetCart(t *testing.T) {
 
 func TestHandler_GetOrderByID(t *testing.T) {
 	t.Parallel()
-
-	userID := uuid.New()
-	orderID := uuid.New()
 	productID1 := uuid.New()
 	productID2 := uuid.New()
 	now := time.Now()
 	deliveryDate := now.Add(5 * 24 * time.Hour)
 	srvcError := errors.New("service error")
+	expectedOrderID := uuid.New()
+	expectedUserID := uuid.New()
 
 	allowAll := &mockAuthorizer{allow: true}
 	denyAll := &mockAuthorizer{allow: false}
@@ -466,18 +465,17 @@ func TestHandler_GetOrderByID(t *testing.T) {
 		{
 			name: "success - owner",
 			req: api.GetOrderByIDRequestObject{
-				Id: orderID,
+				Id: expectedOrderID,
 			},
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
-				UserID: userID,
+				UserID: expectedUserID,
 				Role:   "user",
 			}),
 			mock: &MockOrderService{
-				GetOrderByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
-					require.Equal(t, orderID, id)
+				GetOrderByIDFunc: func(ctx context.Context, userID, orderID uuid.UUID) (*domain.Order, error) {
 					return &domain.Order{
 						ID:           orderID,
-						UserID:       userID,
+						UserID:       expectedUserID,
 						Status:       domain.Status("pending"),
 						Total:        150000,
 						CreatedAt:    now,
@@ -505,7 +503,7 @@ func TestHandler_GetOrderByID(t *testing.T) {
 			checkResult: func(t *testing.T, resp api.GetOrderByIDResponseObject) {
 				response, ok := resp.(api.GetOrderByID200JSONResponse)
 				require.True(t, ok)
-				require.Equal(t, orderID, response.Id)
+				require.Equal(t, expectedOrderID, response.Id)
 				require.Equal(t, api.OrderStatus("pending"), response.Status)
 				require.Equal(t, int64(150000), response.TotalPrice)
 				require.Len(t, response.Items, 2)
@@ -520,17 +518,17 @@ func TestHandler_GetOrderByID(t *testing.T) {
 		{
 			name: "success - employee",
 			req: api.GetOrderByIDRequestObject{
-				Id: orderID,
+				Id: expectedOrderID,
 			},
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
 				UserID: uuid.New(),
 				Role:   "employee",
 			}),
 			mock: &MockOrderService{
-				GetOrderByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
+				GetOrderByIDFunc: func(ctx context.Context, userID, orderID uuid.UUID) (*domain.Order, error) {
 					return &domain.Order{
 						ID:           orderID,
-						UserID:       userID,
+						UserID:       expectedUserID,
 						Status:       domain.Status("pending"),
 						Total:        150000,
 						CreatedAt:    now,
@@ -548,7 +546,7 @@ func TestHandler_GetOrderByID(t *testing.T) {
 		{
 			name: "unauthorized - no claims",
 			req: api.GetOrderByIDRequestObject{
-				Id: orderID,
+				Id: expectedOrderID,
 			},
 			ctx:        context.Background(),
 			mock:       &MockOrderService{},
@@ -560,10 +558,10 @@ func TestHandler_GetOrderByID(t *testing.T) {
 		{
 			name: "forbidden - rbac access denied",
 			req: api.GetOrderByIDRequestObject{
-				Id: orderID,
+				Id: expectedOrderID,
 			},
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
-				UserID: userID,
+				UserID: expectedUserID,
 				Role:   "guest",
 			}),
 			mock:       &MockOrderService{},
@@ -575,17 +573,17 @@ func TestHandler_GetOrderByID(t *testing.T) {
 		{
 			name: "forbidden - not owner and not employee",
 			req: api.GetOrderByIDRequestObject{
-				Id: orderID,
+				Id: expectedOrderID,
 			},
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
 				UserID: uuid.New(),
 				Role:   "user",
 			}),
 			mock: &MockOrderService{
-				GetOrderByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
+				GetOrderByIDFunc: func(ctx context.Context, userID, orderID uuid.UUID) (*domain.Order, error) {
 					return &domain.Order{
 						ID:     orderID,
-						UserID: userID,
+						UserID: expectedUserID,
 						Status: domain.Status("pending"),
 						Total:  150000,
 					}, nil
@@ -599,14 +597,14 @@ func TestHandler_GetOrderByID(t *testing.T) {
 		{
 			name: "order not found",
 			req: api.GetOrderByIDRequestObject{
-				Id: orderID,
+				Id: expectedOrderID,
 			},
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
-				UserID: userID,
+				UserID: expectedUserID,
 				Role:   "user",
 			}),
 			mock: &MockOrderService{
-				GetOrderByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
+				GetOrderByIDFunc: func(ctx context.Context, userID, orderID uuid.UUID) (*domain.Order, error) {
 					return nil, domain.ErrOrderNotFound
 				},
 			},
@@ -618,14 +616,14 @@ func TestHandler_GetOrderByID(t *testing.T) {
 		{
 			name: "internal error",
 			req: api.GetOrderByIDRequestObject{
-				Id: orderID,
+				Id: expectedOrderID,
 			},
 			ctx: auth.ContextWithClaims(context.Background(), &auth.Claims{
-				UserID: userID,
+				UserID: expectedUserID,
 				Role:   "user",
 			}),
 			mock: &MockOrderService{
-				GetOrderByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
+				GetOrderByIDFunc: func(ctx context.Context, userID, orderID uuid.UUID) (*domain.Order, error) {
 					return nil, srvcError
 				},
 			},

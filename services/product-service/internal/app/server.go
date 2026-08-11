@@ -25,7 +25,7 @@ func RunServer(
 	jwt *auth.Validator,
 
 	authorizer *rbac.Authorizer,
-	
+
 )	{
 	
 	router := httptransport.NewRouter(handler, jwt, authorizer)

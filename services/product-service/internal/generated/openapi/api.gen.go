@@ -65,11 +65,11 @@ type Error struct {
 
 // ProductCreateRequest defines model for ProductCreateRequest.
 type ProductCreateRequest struct {
-	Category     string `json:"category"`
-	DeliveryDays int    `json:"delivery_days"`
-	Description  string `json:"description"`
-	Name         string `json:"name"`
-	Price        int64  `json:"price"`
+	Category     string `json:"category" validate:"required"`
+	DeliveryDays int    `json:"delivery_days" validate:"required,gte=0"`
+	Description  string `json:"description" validate:"required,max=5000"`
+	Name         string `json:"name" validate:"required,min=1,max=255"`
+	Price        int64  `json:"price" validate:"required,gte=0"`
 }
 
 // ProductListResponse defines model for ProductListResponse.
@@ -91,17 +91,17 @@ type ProductResponse struct {
 
 	// Price Цена в копейках
 	Price     int64     `json:"price"`
-	Rating    float64   `json:"rating"`
+	Rating    float32   `json:"rating"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // ProductUpdateRequest defines model for ProductUpdateRequest.
 type ProductUpdateRequest struct {
-	Category     *string `json:"category,omitempty"`
-	DeliveryDays *int    `json:"delivery_days,omitempty"`
-	Description  *string `json:"description,omitempty"`
-	Name         *string `json:"name,omitempty"`
-	Price        *int64  `json:"price,omitempty"`
+	Category     *string `json:"category,omitempty" validate:"omitempty"`
+	DeliveryDays *int    `json:"delivery_days,omitempty" validate:"omitempty,gte=0"`
+	Description  *string `json:"description,omitempty" validate:"omitempty,max=5000"`
+	Name         *string `json:"name,omitempty" validate:"omitempty,min=1,max=255"`
+	Price        *int64  `json:"price,omitempty" validate:"omitempty,gte=0"`
 }
 
 // bearerAuthContextKey is the context key for bearerAuth security scheme
@@ -122,10 +122,10 @@ type GetProductsParams struct {
 	MaxPrice *int64 `form:"max_price,omitempty" json:"max_price,omitempty"`
 
 	// MinRating Фильтр по рейтингу
-	MinRating *float64 `form:"min_rating,omitempty" json:"min_rating,omitempty"`
+	MinRating *float32 `form:"min_rating,omitempty" json:"min_rating,omitempty"`
 
 	// DeliveryDays Фильтр по сроку доставки
-	MaxDeliveryDays *int `form:"delivery_days,omitempty" json:"delivery_days,omitempty"`
+	DeliveryDays *int `form:"delivery_days,omitempty" json:"delivery_days,omitempty"`
 
 	// SortBy Поле сортировки
 	SortBy *GetProductsParamsSortBy `form:"sort_by,omitempty" json:"sort_by,omitempty"`
@@ -290,7 +290,7 @@ func (siw *ServerInterfaceWrapper) GetProducts(w http.ResponseWriter, r *http.Re
 
 	// ------------- Optional query parameter "delivery_days" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "delivery_days", r.URL.Query(), &params.MaxDeliveryDays, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "delivery_days", r.URL.Query(), &params.DeliveryDays, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {

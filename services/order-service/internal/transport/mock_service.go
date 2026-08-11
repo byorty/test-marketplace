@@ -8,10 +8,10 @@ import (
 )
 
 type MockOrderService struct {
-	AddToCartFunc      func(ctx context.Context, item *domain.CartItem) error
+	AddToCartFunc      func(ctx context.Context, userID uuid.UUID, item *domain.CartItem) error
 	GetCartFunc        func(ctx context.Context, userID uuid.UUID) (*domain.Cart, error)
 	RemoveFromCartFunc func(ctx context.Context, userID uuid.UUID, productID uuid.UUID) error
-	GetOrderByIDFunc   func(ctx context.Context, id uuid.UUID) (*domain.Order, error)
+	GetOrderByIDFunc   func(ctx context.Context, userID, orderID uuid.UUID) (*domain.Order, error)
 	CreateOrderFunc    func(ctx context.Context, userID uuid.UUID) (*domain.Order, error)
 
 	AddToCartCalls      int
@@ -21,11 +21,11 @@ type MockOrderService struct {
 	CreateOrderCalls    int
 }
 
-func (m *MockOrderService) AddToCart(ctx context.Context, item *domain.CartItem) error {
+func (m *MockOrderService) AddToCart(ctx context.Context, userID uuid.UUID, item *domain.CartItem) error {
 	m.AddToCartCalls++
 
 	if m.AddToCartFunc != nil {
-		return m.AddToCartFunc(ctx, item)
+		return m.AddToCartFunc(ctx, userID, item)
 	}
 
 	return nil
@@ -51,11 +51,11 @@ func (m *MockOrderService) RemoveFromCart(ctx context.Context, userID uuid.UUID,
 	return nil
 }
 
-func (m *MockOrderService) GetOrderByID(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
+func (m *MockOrderService) GetOrderByID(ctx context.Context, userID, orderID uuid.UUID) (*domain.Order, error) {
 	m.GetOrderByIDCalls++
 
 	if m.GetOrderByIDFunc != nil {
-		return m.GetOrderByIDFunc(ctx, id)
+		return m.GetOrderByIDFunc(ctx, userID, orderID)
 	}
 
 	return nil, nil

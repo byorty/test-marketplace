@@ -24,7 +24,7 @@ func (h *OrderHandler) AddToCart(
 		*req.Body,
 	)
 	
-	if err := h.service.AddToCart(ctx, input); err != nil {
+	if err := h.service.AddToCart(ctx, claims.UserID, input); err != nil {
 		return mapAddToCartError(h.log, err), nil
 	}
 

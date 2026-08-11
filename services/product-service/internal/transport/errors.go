@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/byorty/test-marketplace/services/product-service/internal/domain"
-	api "github.com/byorty/test-marketplace/services/product-service/internal/generated"
+	api "github.com/byorty/test-marketplace/services/product-service/internal/generated/openapi"
 	"github.com/byorty/test-marketplace/services/product-service/internal/service"
 	"go.uber.org/zap"
 )

@@ -60,10 +60,11 @@ type Cart struct {
 
 // CartItem defines model for CartItem.
 type CartItem struct {
-	Id        openapi_types.UUID `json:"id"`
-	ProductId openapi_types.UUID `json:"product_id"`
-	Quantity  int32              `json:"quantity"`
-	UserId    openapi_types.UUID `json:"user_id"`
+	Id           openapi_types.UUID `json:"id"`
+	ProductId    openapi_types.UUID `json:"product_id"`
+	ProductPrice int64              `json:"product_price"`
+	Quantity     int32              `json:"quantity"`
+	UserId       openapi_types.UUID `json:"user_id"`
 }
 
 // CreateOrderResponse defines model for CreateOrderResponse.

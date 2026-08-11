@@ -21,4 +21,6 @@ var Module = fx.Options(
 	HandlerModule,
 
 	ServerModule,
+
+	ValidateModule,
 )

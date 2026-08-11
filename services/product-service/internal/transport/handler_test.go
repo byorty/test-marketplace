@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/byorty/test-marketplace/services/product-service/internal/domain"
-	api "github.com/byorty/test-marketplace/services/product-service/internal/generated"
+	api "github.com/byorty/test-marketplace/services/product-service/internal/generated/openapi"
 	"github.com/byorty/test-marketplace/services/product-service/internal/service"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"

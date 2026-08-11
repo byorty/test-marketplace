@@ -21,6 +21,18 @@ paths:
 
       parameters:
         - in: query
+          name: ids
+          description: Фильтр по массиву UUID товаров
+          schema:
+            type: array
+            minItems: 1
+            items:
+              type: string
+              format: uuid
+          style: form
+          explode: false
+
+        - in: query
           name: name
           description: Фильтр по названию товара
           schema:
@@ -402,22 +414,32 @@ components:
           type: string
           minLength: 1
           maxLength: 255
+          x-oapi-codegen-extra-tags:
+            validate: "required,min=1,max=255"
 
         description:
           type: string
           maxLength: 5000
+          x-oapi-codegen-extra-tags:
+            validate: "required,max=5000"
 
         category:
           type: string
+          x-oapi-codegen-extra-tags:
+            validate: "required"
 
         price:
           type: integer
           format: int64
           minimum: 0
+          x-oapi-codegen-extra-tags:
+            validate: "required,gte=0"
 
         delivery_days:
           type: integer
           minimum: 0
+          x-oapi-codegen-extra-tags:
+            validate: "required,gte=0"
 
     ProductUpdateRequest:
       type: object
@@ -427,22 +449,32 @@ components:
           type: string
           minLength: 1
           maxLength: 255
+          x-oapi-codegen-extra-tags:
+            validate: "omitempty,min=1,max=255"
 
         description:
           type: string
           maxLength: 5000
+          x-oapi-codegen-extra-tags:
+            validate: "omitempty,max=5000"
 
         category:
           type: string
+          x-oapi-codegen-extra-tags:
+            validate: "omitempty"
 
         price:
           type: integer
           format: int64
           minimum: 0
+          x-oapi-codegen-extra-tags:
+            validate: "omitempty,gte=0"
 
         delivery_days:
           type: integer
           minimum: 0
+          x-oapi-codegen-extra-tags:
+            validate: "omitempty,gte=0"
 
     ProductListResponse:
       type: object
