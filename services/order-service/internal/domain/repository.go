@@ -8,8 +8,9 @@ import (
 
 type OrderRepository interface {
 	//Cart
-	AddToCart(ctx context.Context, item *CartItem) error
+	AddToCart(ctx context.Context, userID uuid.UUID, item *CartItem) error
 	GetCart(ctx context.Context, userID uuid.UUID) ([]CartItem, error)
+	GetCartItem(ctx context.Context, userID, productID uuid.UUID) (*CartItem, error)
 	RemoveFromCart(ctx context.Context, userID uuid.UUID, productID uuid.UUID) error
 	ClearCart(ctx context.Context, userID uuid.UUID) error
 	//Orders

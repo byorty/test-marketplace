@@ -3,7 +3,7 @@ package domain
 import (
 	"context"
 
-	api "github.com/byorty/test-marketplace/services/product-service/internal/generated"
+	api "github.com/byorty/test-marketplace/services/product-service/internal/generated/openapi"
 	"github.com/google/uuid"
 )
 

@@ -1,0 +1,7 @@
+package: product
+
+generate:
+  models: true
+  client: true
+
+output: ./common/product/client/generated/api.gen.go

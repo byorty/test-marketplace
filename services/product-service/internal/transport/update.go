@@ -3,7 +3,7 @@ package transport
 import (
 	"context"
 
-	api "github.com/byorty/test-marketplace/services/product-service/internal/generated"
+	api "github.com/byorty/test-marketplace/services/product-service/internal/generated/openapi"
 )
 
 func (h *ProductHandler) UpdateProduct(
@@ -11,7 +11,7 @@ func (h *ProductHandler) UpdateProduct(
 	req api.UpdateProductRequestObject,
 ) (api.UpdateProductResponseObject, error) {
 
-	product, err := h.service.Update(ctx, req.Id, toUpdateInput(*req.Body))
+	product, err := h.service.Update(ctx, req.Id, req.Body)
 	if err != nil {
 		return mapUpdateError(h.log, err), nil
 	}

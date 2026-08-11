@@ -5,7 +5,7 @@ import (
 
 	"github.com/byorty/test-marketplace/services/common/auth"
 	"github.com/byorty/test-marketplace/services/common/rbac"
-	api "github.com/byorty/test-marketplace/services/product-service/internal/generated"
+	api "github.com/byorty/test-marketplace/services/product-service/internal/generated/openapi"
 	"github.com/byorty/test-marketplace/services/product-service/internal/transport/middlwr"
 	"github.com/go-chi/chi/v5"
 )

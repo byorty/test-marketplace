@@ -3,7 +3,7 @@ package transport
 import (
 	"context"
 
-	api "github.com/byorty/test-marketplace/services/product-service/internal/generated"
+	api "github.com/byorty/test-marketplace/services/product-service/internal/generated/openapi"
 )
 
 func (h *ProductHandler) CreateProduct(
@@ -11,7 +11,7 @@ func (h *ProductHandler) CreateProduct(
 	req api.CreateProductRequestObject,
 	) (api.CreateProductResponseObject, error) {
 
-	product, err := h.service.Create(ctx, toCreateInput(*req.Body))
+	product, err := h.service.Create(ctx, req.Body)
 	if err != nil {
 		return mapCreateError(h.log, err), nil
 	}

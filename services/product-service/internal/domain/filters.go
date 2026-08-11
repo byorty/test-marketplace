@@ -19,7 +19,7 @@ type ListFilter struct {
 	Category     string
 	MinPrice     *int64
 	MaxPrice     *int64
-	MinRating    *float64
+	MinRating    *float32
 	MaxDeliveryDays *int
 
 	SortBy SortBy

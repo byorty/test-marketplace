@@ -66,7 +66,7 @@ func TestOrderRepository_AddToCart(t *testing.T) {
 		Quantity:  2,
 	}
 
-	err := repo.AddToCart(ctx, item)
+	err := repo.AddToCart(ctx, userID, item)
 
 	require.NoError(t, err)
 
@@ -139,6 +139,189 @@ func TestOrderRepository_GetCart(t *testing.T) {
 		_, _ = db.NewDelete().
 			Model((*domain.CartItem)(nil)).
 			Where("user_id = ?", userID).
+			Exec(ctx)
+	})
+}
+
+func TestOrderRepository_GetCartItem(t *testing.T) {
+	repo, db := newOrderTestRepository(t)
+
+	ctx := context.Background()
+
+	userID := uuid.New()
+	productID := uuid.New()
+
+	item := &domain.CartItem{
+		ID:        uuid.New(),
+		UserID:    userID,
+		ProductID: productID,
+		Quantity:  3,
+	}
+
+	_, err := db.NewInsert().
+		Model(item).
+		Exec(ctx)
+	require.NoError(t, err)
+
+	t.Run("success", func(t *testing.T) {
+		result, err := repo.GetCartItem(ctx, userID, productID)
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		require.Equal(t, item.ID, result.ID)
+		require.Equal(t, item.UserID, result.UserID)
+		require.Equal(t, item.ProductID, result.ProductID)
+		require.Equal(t, item.Quantity, result.Quantity)
+	})
+
+	t.Run("not found - wrong user", func(t *testing.T) {
+		wrongUserID := uuid.New()
+
+		result, err := repo.GetCartItem(ctx, wrongUserID, productID)
+
+		require.Error(t, err)
+		require.ErrorIs(t, err, domain.ErrCartItemNotFound)
+		require.Nil(t, result)
+	})
+
+	t.Run("not found - wrong product", func(t *testing.T) {
+		wrongProductID := uuid.New()
+
+		result, err := repo.GetCartItem(ctx, userID, wrongProductID)
+
+		require.Error(t, err)
+		require.ErrorIs(t, err, domain.ErrCartItemNotFound)
+		require.Nil(t, result)
+	})
+
+	t.Run("not found - both wrong", func(t *testing.T) {
+		wrongUserID := uuid.New()
+		wrongProductID := uuid.New()
+
+		result, err := repo.GetCartItem(ctx, wrongUserID, wrongProductID)
+
+		require.Error(t, err)
+		require.ErrorIs(t, err, domain.ErrCartItemNotFound)
+		require.Nil(t, result)
+	})
+
+	t.Run("multiple items - returns correct one", func(t *testing.T) {
+
+		anotherProductID := uuid.New()
+		anotherItem := &domain.CartItem{
+			ID:        uuid.New(),
+			UserID:    userID,
+			ProductID: anotherProductID,
+			Quantity:  5,
+		}
+
+		_, err := db.NewInsert().
+			Model(anotherItem).
+			Exec(ctx)
+		require.NoError(t, err)
+
+		result, err := repo.GetCartItem(ctx, userID, productID)
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.Equal(t, item.ID, result.ID)
+		require.Equal(t, item.ProductID, result.ProductID)
+		require.Equal(t, 3, result.Quantity)
+
+		result2, err := repo.GetCartItem(ctx, userID, anotherProductID)
+
+		require.NoError(t, err)
+		require.NotNil(t, result2)
+		require.Equal(t, anotherItem.ID, result2.ID)
+		require.Equal(t, anotherProductID, result2.ProductID)
+		require.Equal(t, 5, result2.Quantity)
+
+		_, _ = db.NewDelete().
+			Model((*domain.CartItem)(nil)).
+			Where("product_id = ?", anotherProductID).
+			Exec(ctx)
+	})
+
+	t.Run("nil UUIDs", func(t *testing.T) {
+		result, err := repo.GetCartItem(ctx, uuid.Nil, uuid.Nil)
+
+		require.Error(t, err)
+		require.ErrorIs(t, err, domain.ErrCartItemNotFound)
+		require.Nil(t, result)
+	})
+
+	t.Cleanup(func() {
+		_, _ = db.NewDelete().
+			Model((*domain.CartItem)(nil)).
+			Where("user_id = ?", userID).
+			Exec(ctx)
+	})
+}
+
+func TestOrderRepository_GetCartItem_Isolation(t *testing.T) {
+	repo, db := newOrderTestRepository(t)
+
+	ctx := context.Background()
+
+	user1ID := uuid.New()
+	user2ID := uuid.New()
+	productID := uuid.New()
+
+	item1 := &domain.CartItem{
+		ID:        uuid.New(),
+		UserID:    user1ID,
+		ProductID: productID,
+		Quantity:  2,
+	}
+
+	item2 := &domain.CartItem{
+		ID:        uuid.New(),
+		UserID:    user2ID,
+		ProductID: productID,
+		Quantity:  7,
+	}
+
+	_, err := db.NewInsert().
+		Model(&[]domain.CartItem{*item1, *item2}).
+		Exec(ctx)
+	require.NoError(t, err)
+
+	t.Run("user1 gets his item", func(t *testing.T) {
+		result, err := repo.GetCartItem(ctx, user1ID, productID)
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.Equal(t, item1.ID, result.ID)
+		require.Equal(t, user1ID, result.UserID)
+		require.Equal(t, 2, result.Quantity)
+	})
+
+	t.Run("user2 gets his item", func(t *testing.T) {
+		result, err := repo.GetCartItem(ctx, user2ID, productID)
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.Equal(t, item2.ID, result.ID)
+		require.Equal(t, user2ID, result.UserID)
+		require.Equal(t, 7, result.Quantity)
+	})
+
+	t.Run("user1 cannot get user2's item", func(t *testing.T) {
+
+		result, err := repo.GetCartItem(ctx, user1ID, productID)
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		require.Equal(t, item1.ID, result.ID)
+		require.Equal(t, 2, result.Quantity)
+	})
+
+	t.Cleanup(func() {
+		_, _ = db.NewDelete().
+			Model((*domain.CartItem)(nil)).
+			Where("user_id IN (?, ?)", user1ID, user2ID).
 			Exec(ctx)
 	})
 }

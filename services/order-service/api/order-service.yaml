@@ -282,6 +282,7 @@ components:
         - id
         - user_id
         - product_id
+        - product_price
         - quantity
       properties:
         id:
@@ -293,6 +294,9 @@ components:
         product_id:
           type: string
           format: uuid
+        product_price:
+          type: integer
+          format: int64
         quantity:
           type: integer
           format: int32

@@ -30,3 +30,8 @@ generate-o:
 	oapi-codegen \
 		-config ./services/order-service/api/oapi-codegen.yaml \
 		./services/order-service/api/order-service.yaml
+
+generate-cl:
+	oapi-codegen \
+		-config ./services/common/client/product/oapi-codegen/product-client.yaml \
+		./services/product-service/api/product-service.yaml
