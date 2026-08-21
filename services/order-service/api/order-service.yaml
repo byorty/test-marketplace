@@ -95,7 +95,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /cart/items/{product_id}:
+  /cart/items/{id}:
     delete:
       tags:
         - Cart
@@ -106,7 +106,7 @@ paths:
         - bearerAuth: []
 
       parameters:
-        - name: product_id
+        - name: id
           in: path
           required: true
           schema:
@@ -116,6 +116,13 @@ paths:
       responses:
         "204":
           description: Товар удален
+
+        "400":
+          description: Некорректный UUID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
         "404":
           description: Товар не найден

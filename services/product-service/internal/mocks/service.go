@@ -1,4 +1,4 @@
-package transport
+package mocks
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type MockService struct {
+type MockProductService struct {
 	CreateFunc func(context.Context, *api.ProductCreateRequest) (*domain.Product, error)
 	GetByIDFunc func(context.Context, uuid.UUID) (*domain.Product, error)
 	UpdateFunc func(context.Context, uuid.UUID, *api.ProductUpdateRequest) (*domain.Product, error)
@@ -22,7 +22,7 @@ type MockService struct {
 	ListCalls int
 }
 
-func (m *MockService) Create(ctx context.Context, input *api.ProductCreateRequest) (*domain.Product, error) {
+func (m *MockProductService) Create(ctx context.Context, input *api.ProductCreateRequest) (*domain.Product, error) {
 	m.CreateCalls++
 
 	if m.CreateFunc != nil {
@@ -32,7 +32,7 @@ func (m *MockService) Create(ctx context.Context, input *api.ProductCreateReques
 	return nil, nil
 }
 
-func (m *MockService) GetByID(ctx context.Context, id uuid.UUID) (*domain.Product, error) {
+func (m *MockProductService) GetByID(ctx context.Context, id uuid.UUID) (*domain.Product, error) {
 	m.GetByIDCalls++
 
 	if m.GetByIDFunc != nil {
@@ -42,7 +42,7 @@ func (m *MockService) GetByID(ctx context.Context, id uuid.UUID) (*domain.Produc
 	return nil, nil
 }
 
-func (m *MockService) Update(ctx context.Context, id uuid.UUID, input *api.ProductUpdateRequest) (*domain.Product, error) {
+func (m *MockProductService) Update(ctx context.Context, id uuid.UUID, input *api.ProductUpdateRequest) (*domain.Product, error) {
 	m.UpdateCalls++
 
 	if m.UpdateFunc != nil {
@@ -52,7 +52,7 @@ func (m *MockService) Update(ctx context.Context, id uuid.UUID, input *api.Produ
 	return nil, nil
 }
 
-func (m *MockService) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *MockProductService) Delete(ctx context.Context, id uuid.UUID) error {
 	m.DeleteCalls++
 
 	if m.DeleteFunc != nil {
@@ -62,7 +62,7 @@ func (m *MockService) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (m *MockService) List(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
+func (m *MockProductService) List(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
 	m.ListCalls++
 
 	if m.ListFunc != nil {

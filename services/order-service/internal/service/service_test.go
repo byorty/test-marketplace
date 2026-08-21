@@ -10,6 +10,7 @@ import (
 	"github.com/byorty/test-marketplace/services/common/client/product"
 	client "github.com/byorty/test-marketplace/services/common/client/product/generated"
 	"github.com/byorty/test-marketplace/services/order-service/internal/domain"
+	"github.com/byorty/test-marketplace/services/order-service/internal/mocks"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -19,7 +20,7 @@ func newTestLogger() *zap.Logger {
 	return zap.NewNop()
 }
 
-func newTestService(repo *MockOrderRepository, product *MockProductClient) *OrderService {
+func newTestService(repo *mocks.MockOrderRepository, product *mocks.MockProductClient) *OrderService {
 	return &OrderService{
 		repo: repo,
 		productClient: product,
@@ -37,8 +38,8 @@ func TestService_AddToCart(t *testing.T) {
 		name    string
 		userID  uuid.UUID
 		input   *domain.CartItem
-		repo    *MockOrderRepository
-		product *MockProductClient
+		repo    *mocks.MockOrderRepository
+		product *mocks.MockProductClient
 		wantErr error
 	}{
 		{
@@ -51,13 +52,13 @@ func TestService_AddToCart(t *testing.T) {
 				Quantity:  2,
 			},
 
-			repo: &MockOrderRepository{
+			repo: &mocks.MockOrderRepository{
 				AddToCartFn: func(ctx context.Context, userID uuid.UUID, item *domain.CartItem) error {
 					return nil
 				},
 			},
 
-			product: &MockProductClient{
+			product: &mocks.MockProductClient{
 				GetProductFn: func(
 					ctx context.Context,
 					id uuid.UUID,
@@ -72,8 +73,8 @@ func TestService_AddToCart(t *testing.T) {
 			name:    "nil input",
 			userID:  userID,
 			input:   nil,
-			repo:    &MockOrderRepository{},
-			product: &MockProductClient{},
+			repo:    &mocks.MockOrderRepository{},
+			product: &mocks.MockProductClient{},
 			wantErr: ErrInvalidInput,
 		},
 		{
@@ -86,8 +87,8 @@ func TestService_AddToCart(t *testing.T) {
 				Quantity:  2,
 			},
 
-			repo:    &MockOrderRepository{},
-			product: &MockProductClient{},
+			repo:    &mocks.MockOrderRepository{},
+			product: &mocks.MockProductClient{},
 			wantErr: ErrInvalidUserID,
 		},
 		{
@@ -100,8 +101,8 @@ func TestService_AddToCart(t *testing.T) {
 				Quantity:  2,
 			},
 
-			repo:    &MockOrderRepository{},
-			product: &MockProductClient{},
+			repo:    &mocks.MockOrderRepository{},
+			product: &mocks.MockProductClient{},
 			wantErr: ErrInvalidProductID,
 		},
 		{
@@ -114,8 +115,8 @@ func TestService_AddToCart(t *testing.T) {
 				Quantity:  0,
 			},
 
-			repo:    &MockOrderRepository{},
-			product: &MockProductClient{},
+			repo:    &mocks.MockOrderRepository{},
+			product: &mocks.MockProductClient{},
 			wantErr: ErrInvalidQuantity,
 		},
 		{
@@ -128,9 +129,9 @@ func TestService_AddToCart(t *testing.T) {
 				Quantity:  2,
 			},
 
-			repo: &MockOrderRepository{},
+			repo: &mocks.MockOrderRepository{},
 
-			product: &MockProductClient{
+			product: &mocks.MockProductClient{
 				GetProductFn: func(
 					ctx context.Context,
 					id uuid.UUID,
@@ -151,13 +152,13 @@ func TestService_AddToCart(t *testing.T) {
 				Quantity:  2,
 			},
 
-			repo: &MockOrderRepository{
+			repo: &mocks.MockOrderRepository{
 				AddToCartFn: func(ctx context.Context, userID uuid.UUID, item *domain.CartItem) error {
 					return domain.ErrProductNotInCart
 				},
 			},
 
-			product: &MockProductClient{
+			product: &mocks.MockProductClient{
 				GetProductFn: func(
 					ctx context.Context,
 					id uuid.UUID,
@@ -208,14 +209,14 @@ func TestService_GetCart(t *testing.T) {
 	tests := []struct {
 		name        string
 		userID      uuid.UUID
-		repo        *MockOrderRepository
+		repo        *mocks.MockOrderRepository
 		checkResult func(t *testing.T, cart *domain.Cart)
 		wantErr     error
 	}{
 		{
 			name:   "success",
 			userID: userID,
-			repo: &MockOrderRepository{
+			repo: &mocks.MockOrderRepository{
 				GetCartFn: func(ctx context.Context, id uuid.UUID) ([]domain.CartItem, error) {
 					return []domain.CartItem{
 						{
@@ -250,13 +251,13 @@ func TestService_GetCart(t *testing.T) {
 		{
 			name:   "invalid user id",
 			userID: uuid.Nil,
-			repo:   &MockOrderRepository{},
+			repo:   &mocks.MockOrderRepository{},
 			wantErr: ErrInvalidUserID,
 		},
 		{
 			name:   "repository error",
 			userID: userID,
-			repo: &MockOrderRepository{
+			repo: &mocks.MockOrderRepository{
 				GetCartFn: func(ctx context.Context, userID uuid.UUID) ([]domain.CartItem, error) {
 					return nil, domain.ErrCartEmpty
 				},
@@ -266,7 +267,7 @@ func TestService_GetCart(t *testing.T) {
 		{
 			name:   "empty cart success",
 			userID: userID,
-			repo: &MockOrderRepository{
+			repo: &mocks.MockOrderRepository{
 				GetCartFn: func(ctx context.Context, id uuid.UUID) ([]domain.CartItem, error) {
 					return []domain.CartItem{}, nil
 				},
@@ -309,105 +310,108 @@ func TestService_RemoveFromCart(t *testing.T) {
 	t.Parallel()
 
 	userID := uuid.New()
-	productId := uuid.New()
+	cartItemID := uuid.New()
 
 	tests := []struct {
-		name      string
-		userID    uuid.UUID
-		productID uuid.UUID
-		mock      *MockOrderRepository
-		wantErr   error
+		name       string
+		userID     uuid.UUID
+		cartItemID uuid.UUID
+		mock       *mocks.MockOrderRepository
+		wantErr    error
 	}{
 		{
-			name:      "success",
-			userID:    userID,
-			productID: productId,
-			mock: &MockOrderRepository{
-
-				GetCartItemFn: func(ctx context.Context, uid, pid uuid.UUID) (*domain.CartItem, error) {
+			name:       "success",
+			userID:     userID,
+			cartItemID: cartItemID,
+			mock: &mocks.MockOrderRepository{
+				RemoveFromCartFn: func(
+					ctx context.Context,
+					uid, cid uuid.UUID,
+				) error {
 					require.Equal(t, userID, uid)
-					require.Equal(t, productId, pid)
-					return &domain.CartItem{
-						ID:        uuid.New(),
-						UserID:    uid,
-						ProductID: pid,
-						Quantity:  2,
-					}, nil
-				},
-				RemoveFromCartFn: func(ctx context.Context, uid, pid uuid.UUID) error {
-					require.Equal(t, userID, uid)
-					require.Equal(t, productId, pid)
+					require.Equal(t, cartItemID, cid)
 					return nil
 				},
 			},
 		},
 		{
-			name:      "invalid user id",
-			userID:    uuid.Nil,
-			productID: productId,
-			mock:      &MockOrderRepository{},
-			wantErr:   ErrInvalidUserID,
+			name:       "invalid user id",
+			userID:     uuid.Nil,
+			cartItemID: cartItemID,
+			mock:       &mocks.MockOrderRepository{},
+			wantErr:    ErrInvalidUserID,
 		},
 		{
-			name:      "invalid product id",
-			userID:    userID,
-			productID: uuid.Nil,
-			mock:      &MockOrderRepository{},
-			wantErr:   ErrInvalidProductID,
+			name:       "invalid cart item id",
+			userID:     userID,
+			cartItemID: uuid.Nil,
+			mock:       &mocks.MockOrderRepository{},
+			wantErr:    ErrInvalidCartItemID,
 		},
 		{
-			name:      "product not in cart",
-			userID:    userID,
-			productID: productId,
-			mock: &MockOrderRepository{
-				GetCartItemFn: func(ctx context.Context, uid, pid uuid.UUID) (*domain.CartItem, error) {
-					return nil, domain.ErrCartItemNotFound
-				},
-			},
-			wantErr: domain.ErrCartItemNotFound,
-		},
-		{
-			name:      "repository error on remove",
-			userID:    userID,
-			productID: productId,
-			mock: &MockOrderRepository{
-				GetCartItemFn: func(ctx context.Context, uid, pid uuid.UUID) (*domain.CartItem, error) {
-					return &domain.CartItem{
-						ID:        uuid.New(),
-						UserID:    uid,
-						ProductID: pid,
-						Quantity:  2,
-					}, nil
-				},
-				RemoveFromCartFn: func(ctx context.Context, uid, pid uuid.UUID) error {
+			name:       "cart item not found",
+			userID:     userID,
+			cartItemID: cartItemID,
+			mock: &mocks.MockOrderRepository{
+				RemoveFromCartFn: func(
+					ctx context.Context,
+					uid, cid uuid.UUID,
+				) error {
+					require.Equal(t, userID, uid)
+					require.Equal(t, cartItemID, cid)
 					return domain.ErrCartItemNotFound
 				},
 			},
 			wantErr: domain.ErrCartItemNotFound,
 		},
+		{
+			name:       "repository error",
+			userID:     userID,
+			cartItemID: cartItemID,
+			mock: &mocks.MockOrderRepository{
+				RemoveFromCartFn: func(
+					ctx context.Context,
+					uid, cid uuid.UUID,
+				) error {
+					return errors.New("database error")
+				},
+			},
+			wantErr: errors.New("database error"),
+		},
 	}
 
 	for _, tt := range tests {
+		tt := tt
 
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
 			svc := newTestService(tt.mock, nil)
 
-			err := svc.RemoveFromCart(context.Background(), tt.userID, tt.productID)
+			err := svc.RemoveFromCart(
+				context.Background(),
+				tt.userID,
+				tt.cartItemID,
+			)
 
 			if tt.wantErr != nil {
 				require.Error(t, err)
-				require.ErrorIs(t, err, tt.wantErr)
 
-				if tt.userID != uuid.Nil && tt.productID != uuid.Nil {
-					require.GreaterOrEqual(t, tt.mock.GetCartItemFnCalls, 1)
+				if tt.name == "repository error" {
+					require.ErrorContains(t, err, "remove from cart")
+					require.ErrorContains(t, err, "database error")
+				} else {
+					require.ErrorIs(t, err, tt.wantErr)
 				}
+
+				if tt.userID != uuid.Nil && tt.cartItemID != uuid.Nil {
+					require.Equal(t, 1, tt.mock.RemoveFromCartFnCalls)
+				}
+
 				return
 			}
 
 			require.NoError(t, err)
-			require.Equal(t, 1, tt.mock.GetCartItemFnCalls)
 			require.Equal(t, 1, tt.mock.RemoveFromCartFnCalls)
 		})
 	}
@@ -421,14 +425,14 @@ func TestService_ClearCart(t *testing.T) {
 	tests := []struct {
 		name string
 		userID uuid.UUID
-		mock *MockOrderRepository
+		mock *mocks.MockOrderRepository
 		wantErr error
 	}{
 		{
 			name: "success",
 			userID: userID,
 
-			mock: &MockOrderRepository{
+			mock: &mocks.MockOrderRepository{
 				ClearCartFn: func(ctx context.Context, userID uuid.UUID) error {
 					return nil
 				},
@@ -437,14 +441,14 @@ func TestService_ClearCart(t *testing.T) {
 		{
 			name: "invalid user id",
 			userID: uuid.Nil,
-			mock: &MockOrderRepository{},
+			mock: &mocks.MockOrderRepository{},
 			wantErr: ErrInvalidUserID,
 		},
 		{
 			name: "repository error",
 			userID: userID,
 
-			mock: &MockOrderRepository{
+			mock: &mocks.MockOrderRepository{
 				ClearCartFn: func(ctx context.Context, userID uuid.UUID) error {
 					return domain.ErrCartEmpty
 				},
@@ -489,7 +493,7 @@ func TestService_GetOrderByID(t *testing.T) {
 		name        string
 		userID      uuid.UUID 
 		orderID     uuid.UUID
-		mock        *MockOrderRepository
+		mock        *mocks.MockOrderRepository
 		checkResult func(t *testing.T, order *domain.Order)
 		wantErr     error
 	}{
@@ -497,13 +501,13 @@ func TestService_GetOrderByID(t *testing.T) {
 			name:    "success",
 			userID:  userID,
 			orderID: orderID,
-			mock: &MockOrderRepository{
+			mock: &mocks.MockOrderRepository{
 				GetOrderByIDFn: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
 					return &domain.Order{
 						ID:           orderID,
 						UserID:       userID, 
 						Status:       domain.StatusCreated,
-						Total:        1500,
+						TotalPrice:        1500,
 						CreatedAt:    time.Now(),
 						DeliveryDate: time.Now().Add(48 * time.Hour),
 					}, nil
@@ -515,7 +519,7 @@ func TestService_GetOrderByID(t *testing.T) {
 				require.Equal(t, orderID, o.ID)
 				require.Equal(t, userID, o.UserID)
 				require.Equal(t, domain.StatusCreated, o.Status)
-				require.EqualValues(t, 1500, o.Total)
+				require.EqualValues(t, 1500, o.TotalPrice)
 
 				require.False(t, o.CreatedAt.IsZero())
 				require.False(t, o.DeliveryDate.IsZero())
@@ -525,13 +529,13 @@ func TestService_GetOrderByID(t *testing.T) {
 			name:    "forbidden - order belongs to another user",
 			userID:  userID,
 			orderID: orderID,
-			mock: &MockOrderRepository{
+			mock: &mocks.MockOrderRepository{
 				GetOrderByIDFn: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
 					return &domain.Order{
 						ID:     orderID,
 						UserID: uuid.New(), 
 						Status: domain.StatusCreated,
-						Total:  1500,
+						TotalPrice:  1500,
 					}, nil
 				},
 			},
@@ -541,21 +545,21 @@ func TestService_GetOrderByID(t *testing.T) {
 			name:    "invalid user id",
 			userID:  uuid.Nil,
 			orderID: orderID,
-			mock:    &MockOrderRepository{},
+			mock:    &mocks.MockOrderRepository{},
 			wantErr: ErrInvalidUserID,
 		},
 		{
 			name:    "invalid order id",
 			userID:  userID,
 			orderID: uuid.Nil,
-			mock:    &MockOrderRepository{},
+			mock:    &mocks.MockOrderRepository{},
 			wantErr: ErrInvalidID,
 		},
 		{
 			name:    "repository error",
 			userID:  userID,
 			orderID: orderID,
-			mock: &MockOrderRepository{
+			mock: &mocks.MockOrderRepository{
 				GetOrderByIDFn: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
 					return nil, domain.ErrOrderNotFound
 				},
@@ -602,7 +606,7 @@ func TestService_GetOrderItems(t *testing.T) {
 		name        string
 		userID      uuid.UUID
 		orderID     uuid.UUID
-		mock        *MockOrderRepository
+		mock        *mocks.MockOrderRepository
 		checkResult func(t *testing.T, items []domain.OrderItem)
 		wantErr     error
 	}{
@@ -610,13 +614,13 @@ func TestService_GetOrderItems(t *testing.T) {
 			name:    "success",
 			userID:  userID,
 			orderID: orderID,
-			mock: &MockOrderRepository{
+			mock: &mocks.MockOrderRepository{
 				GetOrderByIDFn: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
 					return &domain.Order{
 						ID:     orderID,
 						UserID: userID,
 						Status: domain.StatusCreated,
-						Total:  370000,
+						TotalPrice:  370000,
 					}, nil
 				},
 				GetOrderItemsFn: func(ctx context.Context, id uuid.UUID) ([]domain.OrderItem, error) {
@@ -655,27 +659,27 @@ func TestService_GetOrderItems(t *testing.T) {
 			name:    "invalid user id",
 			userID:  uuid.Nil,
 			orderID: orderID,
-			mock:    &MockOrderRepository{},
+			mock:    &mocks.MockOrderRepository{},
 			wantErr: ErrInvalidUserID,
 		},
 		{
 			name:    "invalid order id",
 			userID:  userID,
 			orderID: uuid.Nil,
-			mock:    &MockOrderRepository{},
+			mock:    &mocks.MockOrderRepository{},
 			wantErr: ErrInvalidOrderID,
 		},
 		{
 			name:    "forbidden - order belongs to another user",
 			userID:  userID,
 			orderID: orderID,
-			mock: &MockOrderRepository{
+			mock: &mocks.MockOrderRepository{
 				GetOrderByIDFn: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
 					return &domain.Order{
 						ID:     orderID,
 						UserID: uuid.New(),
 						Status: domain.StatusCreated,
-						Total:  370000,
+						TotalPrice:  370000,
 					}, nil
 				},
 			},
@@ -685,7 +689,7 @@ func TestService_GetOrderItems(t *testing.T) {
 			name:    "order not found",
 			userID:  userID,
 			orderID: orderID,
-			mock: &MockOrderRepository{
+			mock: &mocks.MockOrderRepository{
 				GetOrderByIDFn: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
 					return nil, domain.ErrOrderNotFound
 				},
@@ -696,13 +700,13 @@ func TestService_GetOrderItems(t *testing.T) {
 			name:    "get order items error",
 			userID:  userID,
 			orderID: orderID,
-			mock: &MockOrderRepository{
+			mock: &mocks.MockOrderRepository{
 				GetOrderByIDFn: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
 					return &domain.Order{
 						ID:     orderID,
 						UserID: userID,
 						Status: domain.StatusCreated,
-						Total:  370000,
+						TotalPrice:  370000,
 					}, nil
 				},
 				GetOrderItemsFn: func(ctx context.Context, id uuid.UUID) ([]domain.OrderItem, error) {
@@ -753,7 +757,7 @@ func TestService_CreateOrder(t *testing.T) {
 	userID := uuid.New()
 	productID := uuid.New()
 
-	successRepo := &MockOrderRepository{}
+	successRepo := &mocks.MockOrderRepository{}
 
 	successRepo.Self = successRepo
 
@@ -784,7 +788,7 @@ func TestService_CreateOrder(t *testing.T) {
 		return fn(successRepo.Self)
 	}
 
-	successProduct := &MockProductClient{
+	successProduct := &mocks.MockProductClient{
 		GetProductFn: func(ctx context.Context, id uuid.UUID) (*client.ProductResponse, error) {
 			return &client.ProductResponse{
 				Id:           id,
@@ -798,8 +802,8 @@ func TestService_CreateOrder(t *testing.T) {
 	tests := []struct {
 		name        string
 		userID      uuid.UUID
-		repo        *MockOrderRepository
-		product     *MockProductClient
+		repo        *mocks.MockOrderRepository
+		product     *mocks.MockProductClient
 		checkResult func(t *testing.T, o *domain.Order)
 		wantErr     error
 	}{
@@ -815,7 +819,7 @@ func TestService_CreateOrder(t *testing.T) {
 				require.Equal(t, userID, o.UserID)
 
 				require.Equal(t, domain.StatusCreated, o.Status)
-				require.EqualValues(t, 240000, o.Total)
+				require.EqualValues(t, 240000, o.TotalPrice)
 
 				require.False(t, o.CreatedAt.IsZero())
 				require.False(t, o.DeliveryDate.IsZero())
@@ -824,25 +828,25 @@ func TestService_CreateOrder(t *testing.T) {
 		{
 			name:    "invalid user id",
 			userID:  uuid.Nil,
-			repo:    &MockOrderRepository{},
-			product: &MockProductClient{},
+			repo:    &mocks.MockOrderRepository{},
+			product: &mocks.MockProductClient{},
 			wantErr: ErrInvalidUserID,
 		},
 		{
 			name:   "empty cart",
 			userID: userID,
-			repo: &MockOrderRepository{
+			repo: &mocks.MockOrderRepository{
 				GetCartFn: func(ctx context.Context, id uuid.UUID) ([]domain.CartItem, error) {
 					return []domain.CartItem{}, nil
 				},
 			},
-			product: &MockProductClient{},
+			product: &mocks.MockProductClient{},
 			wantErr: domain.ErrCartEmpty,
 		},
 		{
 			name:   "product not found",
 			userID: userID,
-			repo: &MockOrderRepository{
+			repo: &mocks.MockOrderRepository{
 				GetCartFn: func(ctx context.Context, id uuid.UUID) ([]domain.CartItem, error) {
 					return []domain.CartItem{
 						{
@@ -854,7 +858,7 @@ func TestService_CreateOrder(t *testing.T) {
 					}, nil
 				},
 			},
-			product: &MockProductClient{
+			product: &mocks.MockProductClient{
 				GetProductFn: func(ctx context.Context, id uuid.UUID) (*client.ProductResponse, error) {
 					return nil, product.ErrProductNotFound
 				},
@@ -864,7 +868,7 @@ func TestService_CreateOrder(t *testing.T) {
 		{
 			name:   "transaction error",
 			userID: userID,
-			product: &MockProductClient{
+			product: &mocks.MockProductClient{
 				GetProductFn: func(ctx context.Context, id uuid.UUID) (*client.ProductResponse, error) {
 					return &client.ProductResponse{
 						Id:           id,
@@ -874,8 +878,8 @@ func TestService_CreateOrder(t *testing.T) {
 					}, nil
 				},
 			},
-			repo: func() *MockOrderRepository {
-				repo := &MockOrderRepository{}
+			repo: func() *mocks.MockOrderRepository {
+				repo := &mocks.MockOrderRepository{}
 				repo.Self = repo
 
 				repo.GetCartFn = func(ctx context.Context, id uuid.UUID) ([]domain.CartItem, error) {

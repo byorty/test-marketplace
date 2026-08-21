@@ -7,7 +7,7 @@ import (
 
 	"github.com/byorty/test-marketplace/services/product-service/internal/domain"
 	api "github.com/byorty/test-marketplace/services/product-service/internal/generated/openapi"
-	"github.com/go-playground/validator"
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )

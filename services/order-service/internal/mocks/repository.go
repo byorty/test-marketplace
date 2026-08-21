@@ -1,10 +1,11 @@
-package service
+package mocks
 
 import (
 	"context"
 
 	client "github.com/byorty/test-marketplace/services/common/client/product/generated"
 	"github.com/byorty/test-marketplace/services/order-service/internal/domain"
+
 	"github.com/google/uuid"
 )
 

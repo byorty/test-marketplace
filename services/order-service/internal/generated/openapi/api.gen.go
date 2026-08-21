@@ -117,8 +117,8 @@ type ServerInterface interface {
 	// (POST /cart/items)
 	AddToCart(w http.ResponseWriter, r *http.Request)
 	// Удаление товара из корзины
-	// (DELETE /cart/items/{product_id})
-	RemoveFromCart(w http.ResponseWriter, r *http.Request, productId openapi_types.UUID)
+	// (DELETE /cart/items/{id})
+	RemoveFromCart(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
 	// Оформление заказа
 	// (POST /orders)
 	CreateOrder(w http.ResponseWriter, r *http.Request)
@@ -144,8 +144,8 @@ func (_ Unimplemented) AddToCart(w http.ResponseWriter, r *http.Request) {
 }
 
 // Удаление товара из корзины
-// (DELETE /cart/items/{product_id})
-func (_ Unimplemented) RemoveFromCart(w http.ResponseWriter, r *http.Request, productId openapi_types.UUID) {
+// (DELETE /cart/items/{id})
+func (_ Unimplemented) RemoveFromCart(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -216,12 +216,12 @@ func (siw *ServerInterfaceWrapper) RemoveFromCart(w http.ResponseWriter, r *http
 	var err error
 	_ = err
 
-	// ------------- Path parameter "product_id" -------------
-	var productId openapi_types.UUID
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
 
-	err = runtime.BindStyledParameterWithOptions("simple", "product_id", chi.URLParam(r, "product_id"), &productId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "product_id", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
 		return
 	}
 
@@ -232,7 +232,7 @@ func (siw *ServerInterfaceWrapper) RemoveFromCart(w http.ResponseWriter, r *http
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RemoveFromCart(w, r, productId)
+		siw.Handler.RemoveFromCart(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -414,7 +414,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/cart/items", wrapper.AddToCart)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/cart/items/{product_id}", wrapper.RemoveFromCart)
+		r.Delete(options.BaseURL+"/cart/items/{id}", wrapper.RemoveFromCart)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/orders", wrapper.CreateOrder)
@@ -548,7 +548,7 @@ func (response AddToCart500JSONResponse) VisitAddToCartResponse(w http.ResponseW
 }
 
 type RemoveFromCartRequestObject struct {
-	ProductId openapi_types.UUID `json:"product_id"`
+	Id openapi_types.UUID `json:"id"`
 }
 
 type RemoveFromCartResponseObject interface {
@@ -561,6 +561,20 @@ type RemoveFromCart204Response struct {
 func (response RemoveFromCart204Response) VisitRemoveFromCartResponse(w http.ResponseWriter) error {
 	w.WriteHeader(204)
 	return nil
+}
+
+type RemoveFromCart400JSONResponse ErrorResponse
+
+func (response RemoveFromCart400JSONResponse) VisitRemoveFromCartResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type RemoveFromCart401JSONResponse ErrorResponse
@@ -755,7 +769,7 @@ type StrictServerInterface interface {
 	// (POST /cart/items)
 	AddToCart(ctx context.Context, request AddToCartRequestObject) (AddToCartResponseObject, error)
 	// Удаление товара из корзины
-	// (DELETE /cart/items/{product_id})
+	// (DELETE /cart/items/{id})
 	RemoveFromCart(ctx context.Context, request RemoveFromCartRequestObject) (RemoveFromCartResponseObject, error)
 	// Оформление заказа
 	// (POST /orders)
@@ -850,10 +864,10 @@ func (sh *strictHandler) AddToCart(w http.ResponseWriter, r *http.Request) {
 }
 
 // RemoveFromCart operation middleware
-func (sh *strictHandler) RemoveFromCart(w http.ResponseWriter, r *http.Request, productId openapi_types.UUID) {
+func (sh *strictHandler) RemoveFromCart(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
 	var request RemoveFromCartRequestObject
 
-	request.ProductId = productId
+	request.Id = id
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.RemoveFromCart(ctx, request.(RemoveFromCartRequestObject))

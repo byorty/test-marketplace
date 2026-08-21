@@ -19,7 +19,7 @@ func (h *OrderHandler) RemoveFromCart(
 		), nil
 	}
 
-	if err := h.service.RemoveFromCart(ctx, claims.UserID, req.ProductId); err != nil {
+	if err := h.service.RemoveFromCart(ctx, claims.UserID, req.Id); err != nil {
 		return mapRemoveFromCartError(h.log, err), nil
 	}
 
