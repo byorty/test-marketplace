@@ -46,7 +46,7 @@ func toOrderResponse(o *domain.Order) api.Order {
 	return api.Order{
 		Id: o.ID,
 		Status: api.OrderStatus(o.Status),
-		TotalPrice: o.Total,
+		TotalPrice: o.TotalPrice,
 		CreatedAt: o.CreatedAt,
 		DeliveryDate: o.DeliveryDate,
 		Items: items,

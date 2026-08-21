@@ -79,7 +79,7 @@ func (s *OrderService) AddToCart(ctx context.Context, userID uuid.UUID, item *do
 		return ErrInvalidQuantity
 	}
 
-	product, err := s.productClient.GetProduct(ctx, item.ProductID)
+	_, err := s.productClient.GetProduct(ctx, item.ProductID)
 	if err != nil {
 		if errors.Is(err, pr.ErrProductNotFound) {
 			s.log.Warn(
@@ -99,16 +99,6 @@ func (s *OrderService) AddToCart(ctx context.Context, userID uuid.UUID, item *do
 		)
 
 		return fmt.Errorf("get product: %w", err)
-	}
-
-	if product == nil {
-		s.log.Warn(
-			"product not found",
-			zap.String("user_id", userID.String()),
-			zap.String("product_id", item.ProductID.String()),
-		)
-
-		return ErrProductNotFound
 	}
 
 	item.UserID = userID
@@ -175,46 +165,29 @@ func (s *OrderService) GetCart(ctx context.Context, userID uuid.UUID) (*domain.C
 	}, nil
 }
 
-func (s *OrderService) RemoveFromCart(ctx context.Context, userID, productID uuid.UUID) error {
+func (s *OrderService) RemoveFromCart(ctx context.Context, userID uuid.UUID, cartItemID uuid.UUID) error {
 	start := time.Now()
 
-	s.log.Info(
-		"remove from cart started",
-		zap.String("user_id", userID.String()),
-		zap.String("product_id", productID.String()),
-	)
-
 	if userID == uuid.Nil {
-		s.log.Error("invalid user id", zap.Error(ErrInvalidUserID))
 		return ErrInvalidUserID
 	}
 
-	if productID == uuid.Nil {
-		s.log.Error("invalid product id", zap.Error(ErrInvalidProductID))
-		return ErrInvalidProductID
+	if cartItemID == uuid.Nil {
+		return ErrInvalidCartItemID
 	}
 
-	_, err := s.repo.GetCartItem(ctx, userID, productID)
-	if err != nil {
-		if errors.Is(err, domain.ErrProductNotInCart) {
-			s.log.Warn(
-				"product not found in user's cart",
-				zap.String("user_id", userID.String()),
-				zap.String("product_id", productID.String()),
-			)
-			return domain.ErrCartItemNotFound 
+	if err := s.repo.RemoveFromCart(ctx, userID, cartItemID); err != nil {
+		if errors.Is(err, domain.ErrCartItemNotFound) {
+			return domain.ErrCartItemNotFound
 		}
-		return fmt.Errorf("check cart item: %w", err)
-	}
 
-	if err := s.repo.RemoveFromCart(ctx, userID, productID); err != nil {
 		return fmt.Errorf("remove from cart: %w", err)
 	}
 
 	s.log.Info(
 		"remove from cart success",
 		zap.String("user_id", userID.String()),
-		zap.String("product_id", productID.String()),
+		zap.String("cart_item_id", cartItemID.String()),
 		zap.Duration("duration", time.Since(start)),
 	)
 
@@ -383,7 +356,7 @@ func (s *OrderService) CreateOrder(ctx context.Context, userID uuid.UUID) (*doma
 
 	var deliveryDays int
 
-	for _, cartItem := range cart {
+	for i, cartItem := range cart {
 		product, err := s.productClient.GetProduct(ctx, cartItem.ProductID)
 		if err != nil {
 			if errors.Is(err, pr.ErrProductNotFound) {
@@ -403,20 +376,20 @@ func (s *OrderService) CreateOrder(ctx context.Context, userID uuid.UUID) (*doma
 			deliveryDays = product.DeliveryDays
 		}
 
-		items = append(items, domain.OrderItem{
+		items[i] = domain.OrderItem{
 			ID:           uuid.New(),
 			OrderID:      orderID,
 			ProductID:    product.Id,
 			ProductPrice: product.Price,
 			Quantity:     cartItem.Quantity,
-		})
+		}
 	}
 
 	order := &domain.Order{
 		ID:           orderID,
 		UserID:       userID,
 		Status:       domain.StatusCreated,
-		Total:        total,
+		TotalPrice:        total,
 		CreatedAt:    time.Now(),
 		DeliveryDate: time.Now().Add(time.Duration(deliveryDays) * 24 * time.Hour),
 	}

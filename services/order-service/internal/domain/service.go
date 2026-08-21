@@ -9,7 +9,7 @@ import (
 type OrderService interface {
 	AddToCart(ctx context.Context, userID uuid.UUID, item *CartItem) error
 	GetCart(ctx context.Context, userID uuid.UUID) (*Cart, error)
-	RemoveFromCart(ctx context.Context, userID uuid.UUID, productID uuid.UUID) error
+	RemoveFromCart(ctx context.Context, userID uuid.UUID, cartItemID uuid.UUID) error
 
 	GetOrderByID(ctx context.Context, userID, orderID uuid.UUID) (*Order, error)
 	CreateOrder(ctx context.Context, userID uuid.UUID) (*Order, error)

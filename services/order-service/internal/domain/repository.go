@@ -11,7 +11,7 @@ type OrderRepository interface {
 	AddToCart(ctx context.Context, userID uuid.UUID, item *CartItem) error
 	GetCart(ctx context.Context, userID uuid.UUID) ([]CartItem, error)
 	GetCartItem(ctx context.Context, userID, productID uuid.UUID) (*CartItem, error)
-	RemoveFromCart(ctx context.Context, userID uuid.UUID, productID uuid.UUID) error
+	RemoveFromCart(ctx context.Context, userID uuid.UUID, cartItemID uuid.UUID) error
 	ClearCart(ctx context.Context, userID uuid.UUID) error
 	//Orders
 	CreateOrder(ctx context.Context, order *Order) error

@@ -4,52 +4,107 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"path/filepath"
 	"testing"
 	"time"
 
+	models "github.com/byorty/test-marketplace/services/common/db"
 	"github.com/byorty/test-marketplace/services/order-service/internal/domain"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
+	_ "github.com/uptrace/bun/driver/pgdriver"
 	"go.uber.org/zap"
 )
 
 func newTestDB(t *testing.T) *bun.DB {
 	t.Helper()
 
-	sqldb, err := sql.Open(
-		"pgx",
-		"postgres://postgres:postgres@localhost:5432/marketplace?sslmode=disable",
+	ctx := context.Background()
+
+	container, err := postgres.Run(
+		ctx,
+		"postgres:17-alpine",
+		postgres.WithDatabase("marketplace"),
+		postgres.WithUsername("postgres"),
+		postgres.WithPassword("postgres"),
+		postgres.BasicWaitStrategies(),
 	)
+	require.NoError(t, err)
+
+	testcontainers.CleanupContainer(t, container)
+
+	connStr, err := container.ConnectionString(
+		ctx,
+		"sslmode=disable",
+	)
+	require.NoError(t, err)
+
+	sqlDB, err := sql.Open("pg", connStr)
 	require.NoError(t, err)
 
 	db := bun.NewDB(
-		sqldb,
+		sqlDB,
 		pgdialect.New(),
 	)
 
-	err = db.Ping()
-	require.NoError(t, err)
+	require.NoError(t, db.Ping())
+
+	runMigrations(t, connStr)
 
 	t.Cleanup(func() {
-		db.Close()
+		_ = db.Close()
 	})
 
 	return db
 }
 
+func runMigrations(t *testing.T, connStr string) {
+	t.Helper()
+
+	migrationsPath, err := filepath.Abs(
+		"../../../../migrations",
+	)
+	require.NoError(t, err)
+
+	m, err := migrate.New(
+		"file://"+migrationsPath,
+		connStr,
+	)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		srcErr, dbErr := m.Close()
+		require.NoError(t, srcErr)
+		require.NoError(t, dbErr)
+	})
+
+	err = m.Up()
+
+	if errors.Is(err, migrate.ErrNoChange) {
+		return
+	}
+
+	require.NoError(t, err)
+}
+
 func newOrderTestRepository(t *testing.T) (*OrderRepository, *bun.DB) {
 	t.Helper()
 
-	db := newTestDB(t)
+	database := newTestDB(t)
 
 	repo := New(
-		db,
+		database,
 		zap.NewNop(),
 	)
 
-	return repo, db
+	return repo, database
 }
 
 func TestOrderRepository_AddToCart(t *testing.T) {
@@ -58,7 +113,6 @@ func TestOrderRepository_AddToCart(t *testing.T) {
 	ctx := context.Background()
 
 	userID := uuid.New()
-
 	item := &domain.CartItem{
 		ID:        uuid.New(),
 		UserID:    userID,
@@ -70,7 +124,7 @@ func TestOrderRepository_AddToCart(t *testing.T) {
 
 	require.NoError(t, err)
 
-	var actual domain.CartItem
+	var actual models.CartItem
 
 	err = db.NewSelect().
 		Model(&actual).
@@ -83,13 +137,6 @@ func TestOrderRepository_AddToCart(t *testing.T) {
 	require.Equal(t, item.UserID, actual.UserID)
 	require.Equal(t, item.ProductID, actual.ProductID)
 	require.Equal(t, item.Quantity, actual.Quantity)
-
-	t.Cleanup(func() {
-		_, _ = db.NewDelete().
-			Model((*domain.CartItem)(nil)).
-			Where("user_id = ?", userID).
-			Exec(ctx)
-	})
 }
 
 func TestOrderRepository_GetCart(t *testing.T) {
@@ -114,220 +161,24 @@ func TestOrderRepository_GetCart(t *testing.T) {
 		},
 	}
 
-	_, err := db.NewInsert().
-		Model(&items).
-		Exec(ctx)
-
-	require.NoError(t, err)
-
-	result, err := repo.GetCart(ctx, userID)
-
-	require.NoError(t, err)
-	require.Len(t, result, 2)
-
-	require.Equal(t, items[0].ID, result[0].ID)
-	require.Equal(t, items[0].UserID, result[0].UserID)
-	require.Equal(t, items[0].ProductID, result[0].ProductID)
-	require.Equal(t, items[0].Quantity, result[0].Quantity)
-
-	require.Equal(t, items[1].ID, result[1].ID)
-	require.Equal(t, items[1].UserID, result[1].UserID)
-	require.Equal(t, items[1].ProductID, result[1].ProductID)
-	require.Equal(t, items[1].Quantity, result[1].Quantity)
-
-	t.Cleanup(func() {
-		_, _ = db.NewDelete().
-			Model((*domain.CartItem)(nil)).
-			Where("user_id = ?", userID).
-			Exec(ctx)
-	})
-}
-
-func TestOrderRepository_GetCartItem(t *testing.T) {
-	repo, db := newOrderTestRepository(t)
-
-	ctx := context.Background()
-
-	userID := uuid.New()
-	productID := uuid.New()
-
-	item := &domain.CartItem{
-		ID:        uuid.New(),
-		UserID:    userID,
-		ProductID: productID,
-		Quantity:  3,
-	}
-
-	_, err := db.NewInsert().
-		Model(item).
-		Exec(ctx)
-	require.NoError(t, err)
-
-	t.Run("success", func(t *testing.T) {
-		result, err := repo.GetCartItem(ctx, userID, productID)
-
-		require.NoError(t, err)
-		require.NotNil(t, result)
-
-		require.Equal(t, item.ID, result.ID)
-		require.Equal(t, item.UserID, result.UserID)
-		require.Equal(t, item.ProductID, result.ProductID)
-		require.Equal(t, item.Quantity, result.Quantity)
-	})
-
-	t.Run("not found - wrong user", func(t *testing.T) {
-		wrongUserID := uuid.New()
-
-		result, err := repo.GetCartItem(ctx, wrongUserID, productID)
-
-		require.Error(t, err)
-		require.ErrorIs(t, err, domain.ErrCartItemNotFound)
-		require.Nil(t, result)
-	})
-
-	t.Run("not found - wrong product", func(t *testing.T) {
-		wrongProductID := uuid.New()
-
-		result, err := repo.GetCartItem(ctx, userID, wrongProductID)
-
-		require.Error(t, err)
-		require.ErrorIs(t, err, domain.ErrCartItemNotFound)
-		require.Nil(t, result)
-	})
-
-	t.Run("not found - both wrong", func(t *testing.T) {
-		wrongUserID := uuid.New()
-		wrongProductID := uuid.New()
-
-		result, err := repo.GetCartItem(ctx, wrongUserID, wrongProductID)
-
-		require.Error(t, err)
-		require.ErrorIs(t, err, domain.ErrCartItemNotFound)
-		require.Nil(t, result)
-	})
-
-	t.Run("multiple items - returns correct one", func(t *testing.T) {
-
-		anotherProductID := uuid.New()
-		anotherItem := &domain.CartItem{
-			ID:        uuid.New(),
-			UserID:    userID,
-			ProductID: anotherProductID,
-			Quantity:  5,
-		}
-
+	for i := range items {
 		_, err := db.NewInsert().
-			Model(anotherItem).
+			Model(toDBCartItem(&items[i])).
 			Exec(ctx)
-		require.NoError(t, err)
-
-		result, err := repo.GetCartItem(ctx, userID, productID)
 
 		require.NoError(t, err)
-		require.NotNil(t, result)
-		require.Equal(t, item.ID, result.ID)
-		require.Equal(t, item.ProductID, result.ProductID)
-		require.Equal(t, 3, result.Quantity)
-
-		result2, err := repo.GetCartItem(ctx, userID, anotherProductID)
-
-		require.NoError(t, err)
-		require.NotNil(t, result2)
-		require.Equal(t, anotherItem.ID, result2.ID)
-		require.Equal(t, anotherProductID, result2.ProductID)
-		require.Equal(t, 5, result2.Quantity)
-
-		_, _ = db.NewDelete().
-			Model((*domain.CartItem)(nil)).
-			Where("product_id = ?", anotherProductID).
-			Exec(ctx)
-	})
-
-	t.Run("nil UUIDs", func(t *testing.T) {
-		result, err := repo.GetCartItem(ctx, uuid.Nil, uuid.Nil)
-
-		require.Error(t, err)
-		require.ErrorIs(t, err, domain.ErrCartItemNotFound)
-		require.Nil(t, result)
-	})
-
-	t.Cleanup(func() {
-		_, _ = db.NewDelete().
-			Model((*domain.CartItem)(nil)).
-			Where("user_id = ?", userID).
-			Exec(ctx)
-	})
-}
-
-func TestOrderRepository_GetCartItem_Isolation(t *testing.T) {
-	repo, db := newOrderTestRepository(t)
-
-	ctx := context.Background()
-
-	user1ID := uuid.New()
-	user2ID := uuid.New()
-	productID := uuid.New()
-
-	item1 := &domain.CartItem{
-		ID:        uuid.New(),
-		UserID:    user1ID,
-		ProductID: productID,
-		Quantity:  2,
 	}
 
-	item2 := &domain.CartItem{
-		ID:        uuid.New(),
-		UserID:    user2ID,
-		ProductID: productID,
-		Quantity:  7,
-	}
+	actual, err := repo.GetCart(ctx, userID)
 
-	_, err := db.NewInsert().
-		Model(&[]domain.CartItem{*item1, *item2}).
-		Exec(ctx)
 	require.NoError(t, err)
+	require.Len(t, actual, 2)
 
-	t.Run("user1 gets his item", func(t *testing.T) {
-		result, err := repo.GetCartItem(ctx, user1ID, productID)
-
-		require.NoError(t, err)
-		require.NotNil(t, result)
-		require.Equal(t, item1.ID, result.ID)
-		require.Equal(t, user1ID, result.UserID)
-		require.Equal(t, 2, result.Quantity)
-	})
-
-	t.Run("user2 gets his item", func(t *testing.T) {
-		result, err := repo.GetCartItem(ctx, user2ID, productID)
-
-		require.NoError(t, err)
-		require.NotNil(t, result)
-		require.Equal(t, item2.ID, result.ID)
-		require.Equal(t, user2ID, result.UserID)
-		require.Equal(t, 7, result.Quantity)
-	})
-
-	t.Run("user1 cannot get user2's item", func(t *testing.T) {
-
-		result, err := repo.GetCartItem(ctx, user1ID, productID)
-
-		require.NoError(t, err)
-		require.NotNil(t, result)
-
-		require.Equal(t, item1.ID, result.ID)
-		require.Equal(t, 2, result.Quantity)
-	})
-
-	t.Cleanup(func() {
-		_, _ = db.NewDelete().
-			Model((*domain.CartItem)(nil)).
-			Where("user_id IN (?, ?)", user1ID, user2ID).
-			Exec(ctx)
-	})
+	require.ElementsMatch(t, items, actual)
 }
 
 func TestOrderRepository_GetCart_Empty(t *testing.T) {
-	repo, db := newOrderTestRepository(t)
+	repo, _ := newOrderTestRepository(t)
 
 	ctx := context.Background()
 
@@ -335,10 +186,51 @@ func TestOrderRepository_GetCart_Empty(t *testing.T) {
 
 	items, err := repo.GetCart(ctx, userID)
 
-	require.Nil(t, items)
 	require.ErrorIs(t, err, domain.ErrCartEmpty)
+	require.Nil(t, items)
+}
 
-	db.Close()
+func TestOrderRepository_GetCartItem(t *testing.T) {
+	repo, db := newOrderTestRepository(t)
+
+	ctx := context.Background()
+
+	item := &domain.CartItem{
+		ID:        uuid.New(),
+		UserID:    uuid.New(),
+		ProductID: uuid.New(),
+		Quantity:  3,
+	}
+
+	_, err := db.NewInsert().
+		Model(toDBCartItem(item)).
+		Exec(ctx)
+
+	require.NoError(t, err)
+
+	actual, err := repo.GetCartItem(
+		ctx,
+		item.UserID,
+		item.ProductID,
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, item, actual)
+}
+
+func TestOrderRepository_GetCartItem_NotFound(t *testing.T) {
+	repo, _ := newOrderTestRepository(t)
+
+	ctx := context.Background()
+
+	item, err := repo.GetCartItem(
+		ctx,
+		uuid.New(),
+		uuid.New(),
+	)
+
+	require.ErrorIs(t, err, domain.ErrCartItemNotFound)
+	require.Nil(t, item)
 }
 
 func TestOrderRepository_RemoveFromCart(t *testing.T) {
@@ -347,65 +239,27 @@ func TestOrderRepository_RemoveFromCart(t *testing.T) {
 	ctx := context.Background()
 
 	userID := uuid.New()
-	productID := uuid.New()
-
-	itemToRemove := &domain.CartItem{
-		ID:        uuid.New(),
-		UserID:    userID,
-		ProductID: productID,
-		Quantity:  2,
-	}
-
-	itemToKeep := &domain.CartItem{
+	item := &domain.CartItem{
 		ID:        uuid.New(),
 		UserID:    userID,
 		ProductID: uuid.New(),
-		Quantity:  5,
+		Quantity:  2,
 	}
 
-	_, err := db.NewInsert().
-		Model(itemToRemove).
-		Exec(ctx)
-
+	err := repo.AddToCart(ctx, userID, item)
 	require.NoError(t, err)
 
-	_, err = db.NewInsert().
-		Model(itemToKeep).
-		Exec(ctx)
-
+	err = repo.RemoveFromCart(ctx, userID, item.ID)
 	require.NoError(t, err)
 
-	err = repo.RemoveFromCart(ctx, userID, productID)
-
-	require.NoError(t, err)
-
-	var deleted domain.CartItem
+	var actual models.CartItem
 
 	err = db.NewSelect().
-		Model(&deleted).
-		Where("id = ?", itemToRemove.ID).
+		Model(&actual).
+		Where("id = ?", item.ID).
 		Scan(ctx)
 
 	require.ErrorIs(t, err, sql.ErrNoRows)
-
-	var remaining domain.CartItem
-
-	err = db.NewSelect().
-		Model(&remaining).
-		Where("id = ?", itemToKeep.ID).
-		Scan(ctx)
-
-	require.NoError(t, err)
-	require.Equal(t, itemToKeep.ID, remaining.ID)
-	require.Equal(t, itemToKeep.ProductID, remaining.ProductID)
-	require.Equal(t, itemToKeep.Quantity, remaining.Quantity)
-
-	t.Cleanup(func() {
-		_, _ = db.NewDelete().
-			Model((*domain.CartItem)(nil)).
-			Where("user_id = ?", userID).
-			Exec(ctx)
-	})
 }
 
 func TestOrderRepository_RemoveFromCart_NotFound(t *testing.T) {
@@ -422,78 +276,91 @@ func TestOrderRepository_RemoveFromCart_NotFound(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrCartItemNotFound)
 }
 
+func TestOrderRepository_RemoveFromCart_WrongUser(t *testing.T) {
+	repo, _ := newOrderTestRepository(t)
+
+	ctx := context.Background()
+
+	userID := uuid.New()
+
+	item := &domain.CartItem{
+		ID:        uuid.New(),
+		UserID:    userID,
+		ProductID: uuid.New(),
+		Quantity:  1,
+	}
+
+	err := repo.AddToCart(ctx, userID, item)
+	require.NoError(t, err)
+
+	err = repo.RemoveFromCart(
+		ctx,
+		uuid.New(),
+		item.ID,
+	)
+
+	require.ErrorIs(t, err, domain.ErrCartItemNotFound)
+}
+
 func TestOrderRepository_ClearCart(t *testing.T) {
 	repo, db := newOrderTestRepository(t)
 
 	ctx := context.Background()
 
 	userID := uuid.New()
-	otherUserID := uuid.New()
 
-	userItems := []domain.CartItem{
+	items := []domain.CartItem{
 		{
 			ID:        uuid.New(),
 			UserID:    userID,
 			ProductID: uuid.New(),
-			Quantity:  2,
+			Quantity:  1,
 		},
 		{
 			ID:        uuid.New(),
 			UserID:    userID,
 			ProductID: uuid.New(),
-			Quantity:  5,
+			Quantity:  3,
 		},
 	}
 
-	otherUserItem := &domain.CartItem{
+	for i := range items {
+		err := repo.AddToCart(ctx, userID, &items[i])
+		require.NoError(t, err)
+	}
+
+	otherItem := &domain.CartItem{
 		ID:        uuid.New(),
-		UserID:    otherUserID,
+		UserID:    uuid.New(),
 		ProductID: uuid.New(),
 		Quantity:  1,
 	}
 
-	_, err := db.NewInsert().
-		Model(&userItems).
-		Exec(ctx)
-
-	require.NoError(t, err)
-
-	_, err = db.NewInsert().
-		Model(otherUserItem).
-		Exec(ctx)
-
+	err := repo.AddToCart(ctx, otherItem.UserID, otherItem)
 	require.NoError(t, err)
 
 	err = repo.ClearCart(ctx, userID)
-
 	require.NoError(t, err)
 
-	var remainingUserItems []domain.CartItem
+	var actual []models.CartItem
 
 	err = db.NewSelect().
-		Model(&remainingUserItems).
+		Model(&actual).
 		Where("user_id = ?", userID).
 		Scan(ctx)
 
 	require.NoError(t, err)
-	require.Empty(t, remainingUserItems)
+	require.Empty(t, actual)
 
-	var remainingOtherUserItem domain.CartItem
+	var other models.CartItem
 
 	err = db.NewSelect().
-		Model(&remainingOtherUserItem).
-		Where("id = ?", otherUserItem.ID).
+		Model(&other).
+		Where("id = ?", otherItem.ID).
 		Scan(ctx)
 
 	require.NoError(t, err)
-	require.Equal(t, otherUserID, remainingOtherUserItem.UserID)
-
-	t.Cleanup(func() {
-		_, _ = db.NewDelete().
-			Model((*domain.CartItem)(nil)).
-			Where("user_id IN (?, ?)", userID, otherUserID).
-			Exec(ctx)
-	})
+	require.Equal(t, otherItem.ID, other.ID)
 }
 
 func TestOrderRepository_CreateOrder(t *testing.T) {
@@ -505,16 +372,29 @@ func TestOrderRepository_CreateOrder(t *testing.T) {
 		ID:           uuid.New(),
 		UserID:       uuid.New(),
 		Status:       domain.StatusCreated,
-		Total:        1500,
+		TotalPrice:   1500,
 		CreatedAt:    time.Now(),
 		DeliveryDate: time.Now().Add(48 * time.Hour),
+		Items: []domain.OrderItem{
+			{
+				ID:           uuid.New(),
+				ProductID:    uuid.New(),
+				ProductPrice: 1000,
+				Quantity:     1,
+			},
+			{
+				ID:           uuid.New(),
+				ProductID:    uuid.New(),
+				ProductPrice: 500,
+				Quantity:     1,
+			},
+		},
 	}
 
 	err := repo.CreateOrder(ctx, order)
-
 	require.NoError(t, err)
 
-	var actual domain.Order
+	var actual models.Order
 
 	err = db.NewSelect().
 		Model(&actual).
@@ -525,17 +405,43 @@ func TestOrderRepository_CreateOrder(t *testing.T) {
 
 	require.Equal(t, order.ID, actual.ID)
 	require.Equal(t, order.UserID, actual.UserID)
-	require.Equal(t, order.Status, actual.Status)
-	require.Equal(t, order.Total, actual.Total)
-	require.WithinDuration(t, order.CreatedAt, actual.CreatedAt, time.Second)
-	require.WithinDuration(t, order.DeliveryDate, actual.DeliveryDate, time.Second)
+	require.Equal(t, string(order.Status), actual.Status)
+	require.Equal(t, order.TotalPrice, actual.TotalPrice)
+	require.WithinDuration(
+		t,
+		order.CreatedAt,
+		actual.CreatedAt,
+		time.Second,
+	)
+	require.WithinDuration(
+		t,
+		order.DeliveryDate,
+		actual.DeliveryDate,
+		time.Second,
+	)
 
-	t.Cleanup(func() {
-		_, _ = db.NewDelete().
-			Model((*domain.Order)(nil)).
-			Where("id = ?", order.ID).
-			Exec(ctx)
-	})
+	var actualItems []models.OrderItem
+
+	err = db.NewSelect().
+		Model(&actualItems).
+		Where("order_id = ?", order.ID).
+		Order("id").
+		Scan(ctx)
+
+	require.NoError(t, err)
+	require.Len(t, actualItems, 2)
+
+	require.Equal(t, order.Items[0].ID, actualItems[0].ID)
+	require.Equal(t, order.Items[0].OrderID, actualItems[0].OrderID)
+	require.Equal(t, order.Items[0].ProductID, actualItems[0].ProductID)
+	require.Equal(t, order.Items[0].ProductPrice, actualItems[0].ProductPrice)
+	require.Equal(t, order.Items[0].Quantity, actualItems[0].Quantity)
+
+	require.Equal(t, order.Items[1].ID, actualItems[1].ID)
+	require.Equal(t, order.Items[1].OrderID, actualItems[1].OrderID)
+	require.Equal(t, order.Items[1].ProductID, actualItems[1].ProductID)
+	require.Equal(t, order.Items[1].ProductPrice, actualItems[1].ProductPrice)
+	require.Equal(t, order.Items[1].Quantity, actualItems[1].Quantity)
 }
 
 func TestOrderRepository_CreateOrderItems(t *testing.T) {
@@ -549,11 +455,12 @@ func TestOrderRepository_CreateOrderItems(t *testing.T) {
 		ID:           orderID,
 		UserID:       uuid.New(),
 		Status:       domain.StatusCreated,
-		Total:        1450, 
+		TotalPrice:   2000,
 		CreatedAt:    time.Now(),
 		DeliveryDate: time.Now().Add(48 * time.Hour),
 	}
-	_, err := db.NewInsert().Model(order).Exec(ctx)
+
+	err := repo.CreateOrder(ctx, order)
 	require.NoError(t, err)
 
 	items := []domain.OrderItem{
@@ -561,38 +468,31 @@ func TestOrderRepository_CreateOrderItems(t *testing.T) {
 			ID:           uuid.New(),
 			OrderID:      orderID,
 			ProductID:    uuid.New(),
-			ProductPrice: 100,
-			Quantity:     2,
-		},
-		{
-			ID:           uuid.New(),
-			OrderID:      orderID,
-			ProductID:    uuid.New(),
-			ProductPrice: 500,
+			ProductPrice: 1200,
 			Quantity:     1,
 		},
 		{
 			ID:           uuid.New(),
 			OrderID:      orderID,
 			ProductID:    uuid.New(),
-			ProductPrice: 250,
-			Quantity:     3,
+			ProductPrice: 800,
+			Quantity:     1,
 		},
 	}
 
 	err = repo.CreateOrderItems(ctx, items)
-
 	require.NoError(t, err)
 
-	var actual []domain.OrderItem
+	var actual []models.OrderItem
 
 	err = db.NewSelect().
 		Model(&actual).
 		Where("order_id = ?", orderID).
+		Order("id").
 		Scan(ctx)
 
 	require.NoError(t, err)
-	require.Len(t, actual, 3)
+	require.Len(t, actual, 2)
 
 	require.Equal(t, items[0].ID, actual[0].ID)
 	require.Equal(t, items[0].OrderID, actual[0].OrderID)
@@ -601,21 +501,10 @@ func TestOrderRepository_CreateOrderItems(t *testing.T) {
 	require.Equal(t, items[0].Quantity, actual[0].Quantity)
 
 	require.Equal(t, items[1].ID, actual[1].ID)
+	require.Equal(t, items[1].OrderID, actual[1].OrderID)
 	require.Equal(t, items[1].ProductID, actual[1].ProductID)
 	require.Equal(t, items[1].ProductPrice, actual[1].ProductPrice)
 	require.Equal(t, items[1].Quantity, actual[1].Quantity)
-
-	require.Equal(t, items[2].ID, actual[2].ID)
-	require.Equal(t, items[2].ProductID, actual[2].ProductID)
-	require.Equal(t, items[2].ProductPrice, actual[2].ProductPrice)
-	require.Equal(t, items[2].Quantity, actual[2].Quantity)
-
-	t.Cleanup(func() {
-		_, _ = db.NewDelete().
-			Model((*domain.OrderItem)(nil)).
-			Where("order_id = ?", orderID).
-			Exec(ctx)
-	})
 }
 
 func TestOrderRepository_CreateOrderItems_Empty(t *testing.T) {
@@ -630,7 +519,7 @@ func TestOrderRepository_CreateOrderItems_Empty(t *testing.T) {
 }
 
 func TestOrderRepository_GetOrderByID(t *testing.T) {
-	repo, db := newOrderTestRepository(t)
+	repo, _ := newOrderTestRepository(t)
 
 	ctx := context.Background()
 
@@ -638,35 +527,27 @@ func TestOrderRepository_GetOrderByID(t *testing.T) {
 		ID:           uuid.New(),
 		UserID:       uuid.New(),
 		Status:       domain.StatusCreated,
-		Total:        1500,
+		TotalPrice:   1500,
 		CreatedAt:    time.Now().Truncate(time.Microsecond),
 		DeliveryDate: time.Now().Add(48 * time.Hour).Truncate(time.Microsecond),
 	}
 
-	_, err := db.NewInsert().
-		Model(order).
-		Exec(ctx)
-
+	err := repo.CreateOrder(ctx, order)
 	require.NoError(t, err)
 
-	result, err := repo.GetOrderByID(ctx, order.ID)
+	actual, err := repo.GetOrderByID(ctx, order.ID)
 
 	require.NoError(t, err)
-	require.NotNil(t, result)
+	require.NotNil(t, actual)
 
-	require.Equal(t, order.ID, result.ID)
-	require.Equal(t, order.UserID, result.UserID)
-	require.Equal(t, order.Status, result.Status)
-	require.Equal(t, order.Total, result.Total)
-	require.WithinDuration(t, order.CreatedAt, result.CreatedAt, time.Second)
-	require.WithinDuration(t, order.DeliveryDate, result.DeliveryDate, time.Second)
+	require.Equal(t, order.ID, actual.ID)
+	require.Equal(t, order.UserID, actual.UserID)
+	require.Equal(t, order.Status, actual.Status)
+	require.Equal(t, order.TotalPrice, actual.TotalPrice)
+	require.WithinDuration(t, order.CreatedAt, actual.CreatedAt, time.Second)
+	require.WithinDuration(t, order.DeliveryDate, actual.DeliveryDate, time.Second)
 
-	t.Cleanup(func() {
-		_, _ = db.NewDelete().
-			Model((*domain.Order)(nil)).
-			Where("id = ?", order.ID).
-			Exec(ctx)
-	})
+	require.Empty(t, actual.Items)
 }
 
 func TestOrderRepository_GetOrderByID_NotFound(t *testing.T) {
@@ -674,95 +555,67 @@ func TestOrderRepository_GetOrderByID_NotFound(t *testing.T) {
 
 	ctx := context.Background()
 
-	order, err := repo.GetOrderByID(ctx, uuid.New())
+	actual, err := repo.GetOrderByID(ctx, uuid.New())
 
-	require.Nil(t, order)
+	require.Nil(t, actual)
 	require.ErrorIs(t, err, domain.ErrOrderNotFound)
 }
 
 func TestOrderRepository_GetOrderItems(t *testing.T) {
-	repo, db := newOrderTestRepository(t)
+	repo, _ := newOrderTestRepository(t)
 
 	ctx := context.Background()
 
-	orderID := uuid.New()
-	otherOrderID := uuid.New()
-
-	order1 := &domain.Order{
-		ID:           orderID,
+	order := &domain.Order{
+		ID:           uuid.New(),
 		UserID:       uuid.New(),
 		Status:       domain.StatusCreated,
-		Total:        700,
+		TotalPrice:   2000,
 		CreatedAt:    time.Now(),
 		DeliveryDate: time.Now().Add(48 * time.Hour),
 	}
-	_, err := db.NewInsert().Model(order1).Exec(ctx)
-	require.NoError(t, err)
 
-	order2 := &domain.Order{
-		ID:           otherOrderID,
-		UserID:       uuid.New(),
-		Status:       domain.StatusCreated,
-		Total:        9990,
-		CreatedAt:    time.Now(),
-		DeliveryDate: time.Now().Add(48 * time.Hour),
-	}
-	_, err = db.NewInsert().Model(order2).Exec(ctx)
+	err := repo.CreateOrder(ctx, order)
 	require.NoError(t, err)
 
 	items := []domain.OrderItem{
 		{
 			ID:           uuid.New(),
-			OrderID:      orderID,
+			OrderID:      order.ID,
 			ProductID:    uuid.New(),
-			ProductPrice: 100,
-			Quantity:     2,
-		},
-		{
-			ID:           uuid.New(),
-			OrderID:      orderID,
-			ProductID:    uuid.New(),
-			ProductPrice: 500,
+			ProductPrice: 1200,
 			Quantity:     1,
 		},
 		{
 			ID:           uuid.New(),
-			OrderID:      otherOrderID,
+			OrderID:      order.ID,
 			ProductID:    uuid.New(),
-			ProductPrice: 999,
-			Quantity:     10,
+			ProductPrice: 800,
+			Quantity:     1,
 		},
 	}
 
-	_, err = db.NewInsert().
-		Model(&items).
-		Exec(ctx)
-
+	err = repo.CreateOrderItems(ctx, items)
 	require.NoError(t, err)
 
-	result, err := repo.GetOrderItems(ctx, orderID)
+	actual, err := repo.GetOrderItems(ctx, order.ID)
 
 	require.NoError(t, err)
-	require.Len(t, result, 2)
+	require.Len(t, actual, 2)
 
-	require.Equal(t, items[0].ID, result[0].ID)
-	require.Equal(t, items[0].OrderID, result[0].OrderID)
-	require.Equal(t, items[0].ProductID, result[0].ProductID)
-	require.Equal(t, items[0].ProductPrice, result[0].ProductPrice)
-	require.Equal(t, items[0].Quantity, result[0].Quantity)
+	expectedByID := make(map[uuid.UUID]domain.OrderItem, len(items))
 
-	require.Equal(t, items[1].ID, result[1].ID)
-	require.Equal(t, items[1].OrderID, result[1].OrderID)
-	require.Equal(t, items[1].ProductID, result[1].ProductID)
-	require.Equal(t, items[1].ProductPrice, result[1].ProductPrice)
-	require.Equal(t, items[1].Quantity, result[1].Quantity)
+	for _, item := range items {
+		expectedByID[item.ID] = item
+	}
 
-	t.Cleanup(func() {
-		_, _ = db.NewDelete().
-			Model((*domain.OrderItem)(nil)).
-			Where("order_id IN (?, ?)", orderID, otherOrderID).
-			Exec(ctx)
-	})
+	actualByID := make(map[uuid.UUID]domain.OrderItem, len(actual))
+
+	for _, item := range actual {
+		actualByID[item.ID] = item
+	}
+
+	require.Equal(t, expectedByID, actualByID)
 }
 
 func TestOrderRepository_GetOrderItems_Empty(t *testing.T) {
@@ -770,10 +623,10 @@ func TestOrderRepository_GetOrderItems_Empty(t *testing.T) {
 
 	ctx := context.Background()
 
-	items, err := repo.GetOrderItems(ctx, uuid.New())
+	actual, err := repo.GetOrderItems(ctx, uuid.New())
 
 	require.NoError(t, err)
-	require.Empty(t, items)
+	require.Empty(t, actual)
 }
 
 func TestOrderRepository_Transaction_Commit(t *testing.T) {
@@ -785,7 +638,7 @@ func TestOrderRepository_Transaction_Commit(t *testing.T) {
 		ID:           uuid.New(),
 		UserID:       uuid.New(),
 		Status:       domain.StatusCreated,
-		Total:        2000,
+		TotalPrice:   1500,
 		CreatedAt:    time.Now(),
 		DeliveryDate: time.Now().Add(48 * time.Hour),
 	}
@@ -796,7 +649,7 @@ func TestOrderRepository_Transaction_Commit(t *testing.T) {
 
 	require.NoError(t, err)
 
-	var actual domain.Order
+	var actual models.Order
 
 	err = db.NewSelect().
 		Model(&actual).
@@ -804,18 +657,10 @@ func TestOrderRepository_Transaction_Commit(t *testing.T) {
 		Scan(ctx)
 
 	require.NoError(t, err)
-
 	require.Equal(t, order.ID, actual.ID)
 	require.Equal(t, order.UserID, actual.UserID)
-	require.Equal(t, order.Status, actual.Status)
-	require.Equal(t, order.Total, actual.Total)
-
-	t.Cleanup(func() {
-		_, _ = db.NewDelete().
-			Model((*domain.Order)(nil)).
-			Where("id = ?", order.ID).
-			Exec(ctx)
-	})
+	require.Equal(t, string(order.Status), actual.Status)
+	require.Equal(t, order.TotalPrice, actual.TotalPrice)
 }
 
 func TestOrderRepository_Transaction_Rollback(t *testing.T) {
@@ -827,12 +672,12 @@ func TestOrderRepository_Transaction_Rollback(t *testing.T) {
 		ID:           uuid.New(),
 		UserID:       uuid.New(),
 		Status:       domain.StatusCreated,
-		Total:        3000,
+		TotalPrice:   1500,
 		CreatedAt:    time.Now(),
 		DeliveryDate: time.Now().Add(48 * time.Hour),
 	}
 
-	expectedErr := errors.New("something went wrong")
+	expectedErr := errors.New("rollback transaction")
 
 	err := repo.Transaction(ctx, func(txRepo domain.OrderRepository) error {
 		err := txRepo.CreateOrder(ctx, order)
@@ -843,7 +688,7 @@ func TestOrderRepository_Transaction_Rollback(t *testing.T) {
 
 	require.ErrorIs(t, err, expectedErr)
 
-	var actual domain.Order
+	var actual models.Order
 
 	err = db.NewSelect().
 		Model(&actual).

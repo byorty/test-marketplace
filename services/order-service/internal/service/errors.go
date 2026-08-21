@@ -13,4 +13,5 @@ var (
 	ErrEmptyOrder = errors.New("order is empty")
 	ErrProductNotFound = errors.New("product not found")
 	ErrForbidden = errors.New("forbidden")
+	ErrInvalidCartItemID = errors.New("invalid cart item id")
 )

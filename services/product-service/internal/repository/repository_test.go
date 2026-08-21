@@ -3,50 +3,125 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"fmt"
+	"errors"
+	"path/filepath"
 	"testing"
 	"time"
 
+	models "github.com/byorty/test-marketplace/services/common/db"
 	"github.com/byorty/test-marketplace/services/product-service/internal/domain"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/google/uuid"
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
+
+	_ "github.com/uptrace/bun/driver/pgdriver"
 	"go.uber.org/zap"
 )
 
 func newTestDB(t *testing.T) *bun.DB {
 	t.Helper()
 
-	sqldb, err := sql.Open(
-		"pgx",
-		"postgres://postgres:postgres@localhost:5432/marketplace?sslmode=disable",
+	ctx := context.Background()
+
+	container, err := postgres.Run(
+		ctx,
+		"postgres:17-alpine",
+		postgres.WithDatabase("marketplace"),
+		postgres.WithUsername("postgres"),
+		postgres.WithPassword("postgres"),
+		postgres.BasicWaitStrategies(),
 	)
+	require.NoError(t, err)
+
+	testcontainers.CleanupContainer(t, container)
+
+	connStr, err := container.ConnectionString(
+		ctx,
+		"sslmode=disable",
+	)
+	require.NoError(t, err)
+
+	sqlDB, err := sql.Open("pg", connStr)
 	require.NoError(t, err)
 
 	db := bun.NewDB(
-		sqldb,
+		sqlDB,
 		pgdialect.New(),
 	)
 
-	err = db.Ping()
-	require.NoError(t, err)
+	require.NoError(t, db.Ping())
+
+	runMigrations(t, connStr)
+
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
 
 	return db
+}
+
+func runMigrations(t *testing.T, connStr string) {
+	t.Helper()
+
+	migrationsPath, err := filepath.Abs(
+		"../../../../migrations",
+	)
+	require.NoError(t, err)
+
+	m, err := migrate.New(
+		"file://"+migrationsPath,
+		connStr,
+	)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		srcErr, dbErr := m.Close()
+		require.NoError(t, srcErr)
+		require.NoError(t, dbErr)
+	})
+
+	err = m.Up()
+
+	if errors.Is(err, migrate.ErrNoChange) {
+		return
+	}
+
+	require.NoError(t, err)
 }
 
 func newProductTestRepository(t *testing.T) (*ProductRepository, *bun.DB) {
 	t.Helper()
 
-	db := newTestDB(t)
+	database := newTestDB(t)
 
 	repo := New(
-		db,
+		database,
 		zap.NewNop(),
 	)
 
-	return repo, db
+	return repo, database
+}
+
+func newTestProduct() *domain.Product {
+	now := time.Now()
+
+	return &domain.Product{
+		ID:           uuid.New(),
+		Name:         "iPhone",
+		Description:  "Phone",
+		Category:     "Electronics",
+		Price:        100,
+		DeliveryDays: 2,
+		Rating:       4.5,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
 }
 
 func TestRepository_Create(t *testing.T) {
@@ -54,37 +129,28 @@ func TestRepository_Create(t *testing.T) {
 
 	ctx := context.Background()
 
-	p := &domain.Product{
-		ID:           uuid.New(),
-		Name:         "iPhone",
-		Description:  "Phone",
-		Category:     "Electronics",
-		Price:        100,
-		DeliveryDays: 2,
-		Rating:       0,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-	}
+	product := newTestProduct()
 
-	err := repo.Create(ctx, p)
+	err := repo.Create(ctx, product)
 
 	require.NoError(t, err)
 
-	var actual domain.Product
+	var actual models.Product
 
 	err = db.NewSelect().
 		Model(&actual).
-		Where("id = ?", p.ID).
+		Where("id = ?", product.ID).
 		Scan(ctx)
 
 	require.NoError(t, err)
-	require.Equal(t, p.ID, actual.ID)
-	require.Equal(t, p.Name, actual.Name)
-	require.Equal(t, p.Description, actual.Description)
-	require.Equal(t, p.Category, actual.Category)
-	require.Equal(t, p.Price, actual.Price)
-	require.Equal(t, p.DeliveryDays, actual.DeliveryDays)
-	require.Equal(t, p.Rating, actual.Rating)
+
+	require.Equal(t, product.ID, actual.ID)
+	require.Equal(t, product.Name, actual.Name)
+	require.Equal(t, product.Description, actual.Description)
+	require.Equal(t, product.Category, actual.Category)
+	require.Equal(t, product.Price, actual.Price)
+	require.Equal(t, product.DeliveryDays, actual.DeliveryDays)
+	require.Equal(t, product.Rating, actual.Rating)
 }
 
 func TestRepository_GetByID(t *testing.T) {
@@ -92,34 +158,26 @@ func TestRepository_GetByID(t *testing.T) {
 
 	ctx := context.Background()
 
-	p := &domain.Product{
-		ID:           uuid.New(),
-		Name:         "iPhone",
-		Description:  "Phone",
-		Category:     "Electronics",
-		Price:        100,
-		DeliveryDays: 3,
-		Rating:       5,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-	}
+	product := newTestProduct()
 
 	_, err := db.NewInsert().
-		Model(p).
+		Model(toDBProduct(product)).
 		Exec(ctx)
 
 	require.NoError(t, err)
 
-	product, err := repo.GetByID(ctx, p.ID)
+	actual, err := repo.GetByID(ctx, product.ID)
 
 	require.NoError(t, err)
-	require.Equal(t, p.ID, product.ID)
-	require.Equal(t, p.Name, product.Name)
-	require.Equal(t, p.Description, product.Description)
-	require.Equal(t, p.Category, product.Category)
-	require.Equal(t, p.Price, product.Price)
-	require.Equal(t, p.DeliveryDays, product.DeliveryDays)
-	require.Equal(t, p.Rating, product.Rating)
+	require.NotNil(t, actual)
+
+	require.Equal(t, product.ID, actual.ID)
+	require.Equal(t, product.Name, actual.Name)
+	require.Equal(t, product.Description, actual.Description)
+	require.Equal(t, product.Category, actual.Category)
+	require.Equal(t, product.Price, actual.Price)
+	require.Equal(t, product.DeliveryDays, actual.DeliveryDays)
+	require.Equal(t, product.Rating, actual.Rating)
 }
 
 func TestRepository_GetByID_NotFound(t *testing.T) {
@@ -139,47 +197,39 @@ func TestRepository_Update(t *testing.T) {
 
 	ctx := context.Background()
 
-	createdAt := time.Now().Add(-time.Hour)
-	updatedAt := createdAt
+	product := newTestProduct()
 
-	p := &domain.Product{
-		ID:           uuid.New(),
-		Name:         "iPhone",
-		Description:  "Old description",
-		Category:     "Electronics",
-		Price:        100,
-		DeliveryDays: 3,
-		Rating:       4.5,
-		CreatedAt:    createdAt,
-		UpdatedAt:    updatedAt,
-	}
+	product.CreatedAt = time.Now().Add(-time.Hour)
+	product.UpdatedAt = product.CreatedAt
 
 	_, err := db.NewInsert().
-		Model(p).
+		Model(toDBProduct(product)).
 		Exec(ctx)
 
 	require.NoError(t, err)
 
-	p.Name = "iPhone 17"
-	p.Description = "New description"
-	p.Price = 150
-	p.DeliveryDays = 2
-	p.Rating = 5.0
+	product.Name = "iPhone 17"
+	product.Description = "New description"
+	product.Price = 150
+	product.DeliveryDays = 3
+	product.Rating = 5
 
-	updated, err := repo.Update(ctx, p)
+	oldUpdatedAt := product.UpdatedAt
+
+	updated, err := repo.Update(ctx, product)
 
 	require.NoError(t, err)
 	require.NotNil(t, updated)
 
-	require.Equal(t, p.ID, updated.ID)
+	require.Equal(t, product.ID, updated.ID)
 	require.Equal(t, "iPhone 17", updated.Name)
 	require.Equal(t, "New description", updated.Description)
 	require.Equal(t, "Electronics", updated.Category)
 	require.Equal(t, int64(150), updated.Price)
-	require.Equal(t, 2, updated.DeliveryDays)
-	require.Equal(t, 5.0, updated.Rating)
+	require.Equal(t, 3, updated.DeliveryDays)
+	require.Equal(t, float32(5), updated.Rating)
 
-	require.True(t, updated.UpdatedAt.After(updatedAt))
+	require.True(t, updated.UpdatedAt.After(oldUpdatedAt))
 }
 
 func TestRepository_Update_NotFound(t *testing.T) {
@@ -206,33 +256,23 @@ func TestRepository_Delete(t *testing.T) {
 
 	ctx := context.Background()
 
-	p := &domain.Product{
-		ID:           uuid.New(),
-		Name:         "iPhone",
-		Description:  "Phone",
-		Category:     "Electronics",
-		Price:        100,
-		DeliveryDays: 2,
-		Rating:       5,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-	}
+	product := newTestProduct()
 
 	_, err := db.NewInsert().
-		Model(p).
+		Model(toDBProduct(product)).
 		Exec(ctx)
 
 	require.NoError(t, err)
 
-	err = repo.Delete(ctx, p.ID)
+	err = repo.Delete(ctx, product.ID)
 
 	require.NoError(t, err)
 
-	var actual domain.Product
+	var actual models.Product
 
 	err = db.NewSelect().
 		Model(&actual).
-		Where("id = ?", p.ID).
+		Where("id = ?", product.ID).
 		Scan(ctx)
 
 	require.ErrorIs(t, err, sql.ErrNoRows)
@@ -254,12 +294,6 @@ func TestRepository_List(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err := db.NewDelete().
-		Model((*domain.Product)(nil)).
-		Where("1=1").
-		Exec(ctx)
-	require.NoError(t, err)
-
 	products := []*domain.Product{
 		{
 			ID:           uuid.New(),
@@ -268,7 +302,7 @@ func TestRepository_List(t *testing.T) {
 			Category:     "Electronics",
 			Price:        150,
 			DeliveryDays: 2,
-			Rating:       5.0,
+			Rating:       5,
 			CreatedAt:    time.Now(),
 			UpdatedAt:    time.Now(),
 		},
@@ -296,15 +330,18 @@ func TestRepository_List(t *testing.T) {
 		},
 	}
 
-	for _, p := range products {
+	for _, product := range products {
 		_, err := db.NewInsert().
-			Model(p).
+			Model(toDBProduct(product)).
 			Exec(ctx)
 
 		require.NoError(t, err)
 	}
 
-	result, err := repo.List(ctx, domain.ListFilter{})
+	result, err := repo.List(
+		ctx,
+		domain.ListFilter{},
+	)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -319,12 +356,6 @@ func TestRepository_List_FilterAndSortByPrice(t *testing.T) {
 	repo, db := newProductTestRepository(t)
 
 	ctx := context.Background()
-
-	_, err := db.NewDelete().
-		Model((*domain.Product)(nil)).
-		Where("1=1").
-		Exec(ctx)
-	require.NoError(t, err)
 
 	products := []*domain.Product{
 		{
@@ -362,9 +393,9 @@ func TestRepository_List_FilterAndSortByPrice(t *testing.T) {
 		},
 	}
 
-	for _, p := range products {
+	for _, product := range products {
 		_, err := db.NewInsert().
-			Model(p).
+			Model(toDBProduct(product)).
 			Exec(ctx)
 
 		require.NoError(t, err)
@@ -372,11 +403,14 @@ func TestRepository_List_FilterAndSortByPrice(t *testing.T) {
 
 	minPrice := int64(200)
 
-	result, err := repo.List(ctx, domain.ListFilter{
-		MinPrice: &minPrice,
-		SortBy:   domain.SortByPrice,
-		Order:    domain.Asc,
-	})
+	result, err := repo.List(
+		ctx,
+		domain.ListFilter{
+			MinPrice: &minPrice,
+			SortBy:   domain.SortByPrice,
+			Order:    domain.Asc,
+		},
+	)
 
 	require.NoError(t, err)
 
@@ -392,16 +426,10 @@ func TestRepository_List_Pagination(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err := db.NewDelete().
-		Model((*domain.Product)(nil)).
-		Where("1=1").
-		Exec(ctx)
-	require.NoError(t, err)
-
 	for i := 0; i < 5; i++ {
-		p := &domain.Product{
+		product := &domain.Product{
 			ID:           uuid.New(),
-			Name:         fmt.Sprintf("Product %d", i),
+			Name:         "Product " + string(rune('0'+i)),
 			Description:  "Product",
 			Category:     "Electronics",
 			Price:        int64(i * 100),
@@ -412,18 +440,21 @@ func TestRepository_List_Pagination(t *testing.T) {
 		}
 
 		_, err := db.NewInsert().
-			Model(p).
+			Model(toDBProduct(product)).
 			Exec(ctx)
 
 		require.NoError(t, err)
 	}
 
-	result, err := repo.List(ctx, domain.ListFilter{
-		Page:     2,
-		PageSize: 2,
-		SortBy:   domain.SortByPrice,
-		Order:    domain.Asc,
-	})
+	result, err := repo.List(
+		ctx,
+		domain.ListFilter{
+			Page:     2,
+			PageSize: 2,
+			SortBy:   domain.SortByPrice,
+			Order:    domain.Asc,
+		},
+	)
 
 	require.NoError(t, err)
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/byorty/test-marketplace/services/common/db"
 	"github.com/byorty/test-marketplace/services/product-service/internal/domain"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
@@ -26,8 +27,9 @@ func New(db *bun.DB, log *zap.Logger) *ProductRepository {
 }
 
 func (r *ProductRepository) Create(ctx context.Context, p *domain.Product) error {
+	dbP := toDBProduct(p)
 	
-	_, err := r.db.NewInsert().Model(p).Exec(ctx)
+	_, err := r.db.NewInsert().Model(dbP).Exec(ctx)
 
 	if err != nil {
 		r.log.Error(
@@ -48,9 +50,9 @@ func (r *ProductRepository) Create(ctx context.Context, p *domain.Product) error
 
 func (r *ProductRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Product, error) {
 
-	product := new(domain.Product)
+	var p db.Product
 
-	err := r.db.NewSelect().Model(product).Where("id = ?", id).Scan(ctx)
+	err := r.db.NewSelect().Model(&p).Where("id = ?", id).Scan(ctx)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrProductNotFound
@@ -65,20 +67,25 @@ func (r *ProductRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 		return nil, err
 	}
 
-	return product, nil
+	return toDomainProduct(&p), nil
 }
 
 func (r *ProductRepository) Update(ctx context.Context, p *domain.Product) (*domain.Product, error) {
+	dbP := toDBProduct(p)
 
-	p.UpdatedAt = time.Now()
+	dbP.UpdatedAt = time.Now()
 
 	updated := new(domain.Product)
 
-	err := r.db.NewUpdate().Model(p).Where("id = ?", p.ID).Returning("*").Scan(ctx, updated)
+	err := r.db.NewUpdate().
+		Model(dbP).
+		Where("id = ?", p.ID).
+		Returning("*").
+		Scan(ctx, updated)
 
 	if err != nil {
 		r.log.Error(
-			"upate product failed",
+			"update product failed",
 			zap.Error(err),
 			zap.String("product_id", p.ID.String()),
 		)
@@ -88,6 +95,7 @@ func (r *ProductRepository) Update(ctx context.Context, p *domain.Product) (*dom
 		}
 		return nil, err
 	}
+
 	return updated, nil
 }	
 
@@ -120,7 +128,6 @@ func (r *ProductRepository) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *ProductRepository) List(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
-
 	page := filter.Page
 	if page <= 0 {
 		page = 1
@@ -131,9 +138,7 @@ func (r *ProductRepository) List(ctx context.Context, filter domain.ListFilter) 
 		pageSize = 20
 	}
 
-	items := make([]*domain.Product, 0)
-
-	query := r.db.NewSelect().Model((*domain.Product)(nil))
+	query := r.db.NewSelect().Model((*db.Product)(nil))
 
 	if filter.Name != "" {
 		query = query.Where("name ILIKE ?", "%"+filter.Name+"%")
@@ -156,7 +161,10 @@ func (r *ProductRepository) List(ctx context.Context, filter domain.ListFilter) 
 	}
 
 	if filter.MaxDeliveryDays != nil {
-		query = query.Where("delivery_days <= ?", *filter.MaxDeliveryDays)
+		query = query.Where(
+			"delivery_days <= ?",
+			*filter.MaxDeliveryDays,
+		)
 	}
 
 	var total int64
@@ -164,7 +172,6 @@ func (r *ProductRepository) List(ctx context.Context, filter domain.ListFilter) 
 	countQuery := query.Clone()
 
 	count, err := countQuery.Count(ctx)
-
 	if err != nil {
 		r.log.Error(
 			"count products failed",
@@ -193,8 +200,14 @@ func (r *ProductRepository) List(ctx context.Context, filter domain.ListFilter) 
 	}
 
 	offset := (page - 1) * pageSize
-	err = query.Limit(pageSize).Offset(offset).Scan(ctx, &items)
-	
+
+	var dbItems []db.Product
+
+	err = query.
+		Limit(pageSize).
+		Offset(offset).
+		Scan(ctx, &dbItems)
+
 	if err != nil {
 		r.log.Error(
 			"query products failed",
@@ -206,13 +219,18 @@ func (r *ProductRepository) List(ctx context.Context, filter domain.ListFilter) 
 		return nil, err
 	}
 
+	items := make([]*domain.Product, 0, len(dbItems))
+
+	for i := range dbItems {
+		items = append(items, toDomainProduct(&dbItems[i]))
+	}
+
 	r.log.Info(
 		"products listed",
 		zap.Int("count", len(items)),
 		zap.Int("page", page),
 		zap.Int("page_size", pageSize),
 	)
-
 
 	return &domain.ProductList{
 		Items:    items,

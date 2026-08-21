@@ -9,6 +9,7 @@ import (
 
 	"github.com/byorty/test-marketplace/services/product-service/internal/domain"
 	api "github.com/byorty/test-marketplace/services/product-service/internal/generated/openapi"
+	"github.com/byorty/test-marketplace/services/product-service/internal/mocks"
 	"github.com/byorty/test-marketplace/services/product-service/internal/service"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -27,7 +28,7 @@ func TestHandler_CreateProduct(t *testing.T) {
 	tests := []struct {
 		name string
 		req api.CreateProductRequestObject
-		mock *MockService
+		mock *mocks.MockProductService
 		checkResult func(t *testing.T, resp api.CreateProductResponseObject)
 	}{
 		{
@@ -43,7 +44,7 @@ func TestHandler_CreateProduct(t *testing.T) {
 				},
 			},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				CreateFunc: func(ctx context.Context, input *api.ProductCreateRequest) (*domain.Product, error) {
 					return &domain.Product{
 						ID: uuid.New(),
@@ -79,7 +80,7 @@ func TestHandler_CreateProduct(t *testing.T) {
 				},
 			},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				CreateFunc: func(ctx context.Context, cp *api.ProductCreateRequest) (*domain.Product, error) {
 					return nil, service.ErrInvalidInput
 				},
@@ -102,7 +103,7 @@ func TestHandler_CreateProduct(t *testing.T) {
 				},
 			},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				CreateFunc: func(ctx context.Context, cp *api.ProductCreateRequest) (*domain.Product, error) {
 					return nil, srvcError
 				},
@@ -165,7 +166,7 @@ func TestHandler_GetByID(t *testing.T) {
 	tests := []struct {
 		name string
 		req api.GetByIDRequestObject
-		mock *MockService
+		mock *mocks.MockProductService
 		checkResult func(t *testing.T, resp api.GetByIDResponseObject)
 	}{
 		{
@@ -175,7 +176,7 @@ func TestHandler_GetByID(t *testing.T) {
 				Id: product.ID,
 			},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				GetByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Product, error) {
 					require.Equal(t, product.ID, id)
 
@@ -203,7 +204,7 @@ func TestHandler_GetByID(t *testing.T) {
 				Id: uuid.New(),
 			},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				GetByIDFunc: func(ctx context.Context, u uuid.UUID) (*domain.Product, error) {
 					return nil, domain.ErrProductNotFound
 				},
@@ -224,7 +225,7 @@ func TestHandler_GetByID(t *testing.T) {
 				Id: uuid.New(),
 			},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				GetByIDFunc: func(ctx context.Context, u uuid.UUID) (*domain.Product, error) {
 					return nil, srvcErr
 				},
@@ -277,7 +278,7 @@ func TestHandler_DeleteProduct(t *testing.T) {
 	tests := []struct {
 		name string
 		req api.DeleteProductRequestObject
-		mock *MockService
+		mock *mocks.MockProductService
 		checkResult func(t *testing.T, resp api.DeleteProductResponseObject)
 	}{
 		{
@@ -287,7 +288,7 @@ func TestHandler_DeleteProduct(t *testing.T) {
 				Id: uuid.New(),
 			},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				DeleteFunc: func(ctx context.Context, u uuid.UUID) error {
 					return nil
 				},
@@ -305,7 +306,7 @@ func TestHandler_DeleteProduct(t *testing.T) {
 				Id: requestID,
 			},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				DeleteFunc: func(ctx context.Context, u uuid.UUID) error {
 					return domain.ErrProductNotFound
 				},
@@ -326,7 +327,7 @@ func TestHandler_DeleteProduct(t *testing.T) {
 				Id: uuid.New(),
 			},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				DeleteFunc: func(ctx context.Context, u uuid.UUID) error {
 					return srvcErr
 				},
@@ -382,7 +383,7 @@ func TestHandler_UpdateProduct(t *testing.T) {
 	tests := []struct {
 		name string
 		req api.UpdateProductRequestObject
-		mock *MockService
+		mock *mocks.MockProductService
 		checkResult func(t *testing.T, resp api.UpdateProductResponseObject)
 	}{
 		{
@@ -396,7 +397,7 @@ func TestHandler_UpdateProduct(t *testing.T) {
 				},
 			},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				UpdateFunc: func(ctx context.Context, id uuid.UUID,
 					input *api.ProductUpdateRequest,
 				) (*domain.Product, error) {
@@ -442,7 +443,7 @@ func TestHandler_UpdateProduct(t *testing.T) {
 				Body: &api.ProductUpdateRequest{},
 			},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				UpdateFunc: func(ctx context.Context, u uuid.UUID, pur *api.ProductUpdateRequest) (*domain.Product, error) {
 					return nil, service.ErrInvalidInput
 				},
@@ -464,7 +465,7 @@ func TestHandler_UpdateProduct(t *testing.T) {
 				Body: &api.ProductUpdateRequest{},
 			},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				UpdateFunc: func(ctx context.Context, id uuid.UUID, input *api.ProductUpdateRequest) (*domain.Product, error) {
 					return nil, service.ErrEmptyUpdate
 				},
@@ -486,7 +487,7 @@ func TestHandler_UpdateProduct(t *testing.T) {
 				Body: &api.ProductUpdateRequest{},
 			},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				UpdateFunc: func(ctx context.Context, u uuid.UUID, up *api.ProductUpdateRequest) (*domain.Product, error) {
 					return nil, domain.ErrProductNotFound
 				},
@@ -508,7 +509,7 @@ func TestHandler_UpdateProduct(t *testing.T) {
 				Body: &api.ProductUpdateRequest{},
 			},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				UpdateFunc: func(ctx context.Context, u uuid.UUID, up *api.ProductUpdateRequest) (*domain.Product, error) {
 					return nil, srvcErr
 				},
@@ -573,7 +574,7 @@ func TestHandler_GetProducts(t *testing.T) {
 	tests := []struct {
 		name string
 		req api.GetProductsRequestObject
-		mock *MockService
+		mock *mocks.MockProductService
 		checkResult func(t *testing.T, resp api.GetProductsResponseObject)
 	}{
 		{
@@ -586,7 +587,7 @@ func TestHandler_GetProducts(t *testing.T) {
 				},
 			},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				ListFunc: func(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
 					require.Equal(t, 1, filter.Page)
 					require.Equal(t, 10, filter.PageSize) 
@@ -622,7 +623,7 @@ func TestHandler_GetProducts(t *testing.T) {
 
 			req: api.GetProductsRequestObject{},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				ListFunc: func(ctx context.Context, lf domain.ListFilter) (*domain.ProductList, error) {
 					return nil, service.ErrInvalidInput
 				},
@@ -641,7 +642,7 @@ func TestHandler_GetProducts(t *testing.T) {
 
 			req: api.GetProductsRequestObject{},
 
-			mock: &MockService{
+			mock: &mocks.MockProductService{
 				ListFunc: func(ctx context.Context, lf domain.ListFilter) (*domain.ProductList, error) {
 					return nil, srvcErr
 				},
