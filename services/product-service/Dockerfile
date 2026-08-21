@@ -2,7 +2,8 @@ FROM golang:1.25 AS builder
 
 WORKDIR /app
 
-COPY services/product-service .
+COPY services/ .
+WORKDIR /app/product-service
 
 RUN go mod download
 
@@ -15,7 +16,7 @@ FROM alpine:3.22
 WORKDIR /app
 
 COPY --from=builder /app/product-service .
-COPY --from=builder /app/config.yaml .
+COPY --from=builder /app/product-service/config.yaml .
 
 EXPOSE 8080
 
