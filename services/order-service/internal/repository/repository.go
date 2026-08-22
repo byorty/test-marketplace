@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	db "github.com/byorty/test-marketplace/services/common/db"
 	"github.com/byorty/test-marketplace/services/order-service/internal/domain"
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -30,10 +29,8 @@ func New(db *bun.DB, log *zap.Logger) *OrderRepository {
 func (r *OrderRepository) AddToCart(ctx context.Context, userID uuid.UUID, item *domain.CartItem) error {
 	log := r.log.Named("OrderRepository.AddToCart")
 
-	dbItem := toDBCartItem(item)
-
 	_, err := r.db.NewInsert().
-		Model(dbItem).
+		Model(item).
 		Exec(ctx)
 
 	if err != nil {
@@ -54,10 +51,10 @@ func (r *OrderRepository) AddToCart(ctx context.Context, userID uuid.UUID, item 
 func (r *OrderRepository) GetCart(ctx context.Context, userID uuid.UUID) ([]domain.CartItem, error) {
 	log := r.log.Named("OrderRepository.GetCart")
 
-	var dbItems []db.CartItem
+	items := make([]domain.CartItem, 0)
 
 	err := r.db.NewSelect().
-		Model(&dbItems).
+		Model(&items).
 		Where("user_id = ?", userID).
 		Scan(ctx)
 
@@ -71,24 +68,18 @@ func (r *OrderRepository) GetCart(ctx context.Context, userID uuid.UUID) ([]doma
 		return nil, err
 	}
 
-	if len(dbItems) == 0 {
+	if len(items) == 0 {
 		return nil, domain.ErrCartEmpty
-	}
-
-	items := make([]domain.CartItem, 0, len(dbItems))
-
-	for i := range dbItems {
-		items = append(items, *toDomainCartItem(&dbItems[i]))
 	}
 
 	return items, nil
 }
 
 func (r *OrderRepository) GetCartItem(ctx context.Context, userID, productID uuid.UUID) (*domain.CartItem, error) {
-	var dbItem db.CartItem
+	var item domain.CartItem
 
 	err := r.db.NewSelect().
-		Model(&dbItem).
+		Model(&item).
 		Where("user_id = ? AND product_id = ?", userID, productID).
 		Scan(ctx)
 
@@ -100,12 +91,12 @@ func (r *OrderRepository) GetCartItem(ctx context.Context, userID, productID uui
 		return nil, fmt.Errorf("get cart item: %w", err)
 	}
 
-	return toDomainCartItem(&dbItem), nil
+	return &item, nil
 }
 
 func (r *OrderRepository) RemoveFromCart(ctx context.Context, userID uuid.UUID, cartItemID uuid.UUID) error {
 	result, err := r.db.NewDelete().
-		Model((*db.CartItem)(nil)).
+		Model((*domain.CartItem)(nil)).
 		Where("id = ?", cartItemID).
 		Where("user_id = ?", userID).
 		Exec(ctx)
@@ -130,7 +121,7 @@ func (r *OrderRepository) ClearCart(ctx context.Context, userID uuid.UUID) error
 	log := r.log.Named("OrderRepository.ClearCart")
 
 	_, err := r.db.NewDelete().
-		Model((*db.CartItem)(nil)).
+		Model((*domain.CartItem)(nil)).
 		Where("user_id = ?", userID).
 		Exec(ctx)
 
@@ -148,10 +139,9 @@ func (r *OrderRepository) ClearCart(ctx context.Context, userID uuid.UUID) error
 }
 
 func (r *OrderRepository) CreateOrder(ctx context.Context, order *domain.Order) error {
-	dbOrder := toDBOrder(order)
 
 	_, err := r.db.NewInsert().
-		Model(dbOrder).
+		Model(order).
 		Exec(ctx)
 
 	if err != nil {
@@ -163,17 +153,8 @@ func (r *OrderRepository) CreateOrder(ctx context.Context, order *domain.Order) 
 			order.Items[i].OrderID = order.ID
 		}
 
-		dbItems := make([]db.OrderItem, 0, len(order.Items))
-
-		for i := range order.Items {
-			dbItems = append(
-				dbItems,
-				*toDBOrderItem(&order.Items[i]),
-			)
-		}
-
 		_, err = r.db.NewInsert().
-			Model(&dbItems).
+			Model(&order.Items).
 			Exec(ctx)
 
 		if err != nil {
@@ -191,14 +172,8 @@ func (r *OrderRepository) CreateOrderItems(ctx context.Context, items []domain.O
 		return nil
 	}
 
-	dbItems := make([]*db.OrderItem, 0, len(items))
-
-	for i := range items {
-		dbItems = append(dbItems, toDBOrderItem(&items[i]))
-	}
-
 	_, err := r.db.NewInsert().
-		Model(&dbItems).
+		Model(&items).
 		Exec(ctx)
 
 	if err != nil {
@@ -218,10 +193,10 @@ func (r *OrderRepository) CreateOrderItems(ctx context.Context, items []domain.O
 func (r *OrderRepository) GetOrderByID(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
 	log := r.log.Named("OrderRepository.GetOrderByID")
 
-	dbOrder := new(db.Order)
+	order := new(domain.Order)
 
 	err := r.db.NewSelect().
-		Model(dbOrder).
+		Model(order).
 		Where("id = ?", id).
 		Scan(ctx)
 
@@ -239,16 +214,16 @@ func (r *OrderRepository) GetOrderByID(ctx context.Context, id uuid.UUID) (*doma
 		return nil, err
 	}
 
-	return toDomainOrder(dbOrder), nil
+	return order, nil
 }
 
 func (r *OrderRepository) GetOrderItems(ctx context.Context, orderID uuid.UUID) ([]domain.OrderItem, error) {
 	log := r.log.Named("OrderRepository.GetOrderItems")
 
-	dbItems := make([]db.OrderItem, 0)
+	items := make([]domain.OrderItem, 0)
 
 	err := r.db.NewSelect().
-		Model(&dbItems).
+		Model(&items).
 		Where("order_id = ?", orderID).
 		Scan(ctx)
 
@@ -260,12 +235,6 @@ func (r *OrderRepository) GetOrderItems(ctx context.Context, orderID uuid.UUID) 
 		)
 
 		return nil, err
-	}
-
-	items := make([]domain.OrderItem, 0, len(dbItems))
-
-	for i := range dbItems {
-		items = append(items, *toDomainOrderItem(&dbItems[i]))
 	}
 
 	return items, nil
