@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/byorty/test-marketplace/services/common/db"
 	"github.com/byorty/test-marketplace/services/product-service/internal/domain"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
@@ -27,9 +26,8 @@ func New(db *bun.DB, log *zap.Logger) *ProductRepository {
 }
 
 func (r *ProductRepository) Create(ctx context.Context, p *domain.Product) error {
-	dbP := toDBProduct(p)
 	
-	_, err := r.db.NewInsert().Model(dbP).Exec(ctx)
+	_, err := r.db.NewInsert().Model(p).Exec(ctx)
 
 	if err != nil {
 		r.log.Error(
@@ -50,7 +48,7 @@ func (r *ProductRepository) Create(ctx context.Context, p *domain.Product) error
 
 func (r *ProductRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Product, error) {
 
-	var p db.Product
+	var p domain.Product
 
 	err := r.db.NewSelect().Model(&p).Where("id = ?", id).Scan(ctx)
 
@@ -67,18 +65,17 @@ func (r *ProductRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 		return nil, err
 	}
 
-	return toDomainProduct(&p), nil
+	return &p, nil
 }
 
 func (r *ProductRepository) Update(ctx context.Context, p *domain.Product) (*domain.Product, error) {
-	dbP := toDBProduct(p)
 
-	dbP.UpdatedAt = time.Now()
+	p.UpdatedAt = time.Now()
 
 	updated := new(domain.Product)
 
 	err := r.db.NewUpdate().
-		Model(dbP).
+		Model(p).
 		Where("id = ?", p.ID).
 		Returning("*").
 		Scan(ctx, updated)
@@ -138,7 +135,7 @@ func (r *ProductRepository) List(ctx context.Context, filter domain.ListFilter) 
 		pageSize = 20
 	}
 
-	query := r.db.NewSelect().Model((*db.Product)(nil))
+	query := r.db.NewSelect().Model((*domain.Product)(nil))
 
 	if filter.Name != "" {
 		query = query.Where("name ILIKE ?", "%"+filter.Name+"%")
@@ -201,12 +198,12 @@ func (r *ProductRepository) List(ctx context.Context, filter domain.ListFilter) 
 
 	offset := (page - 1) * pageSize
 
-	var dbItems []db.Product
+	items := make([]*domain.Product, 0)
 
 	err = query.
 		Limit(pageSize).
 		Offset(offset).
-		Scan(ctx, &dbItems)
+		Scan(ctx, &items)
 
 	if err != nil {
 		r.log.Error(
@@ -217,12 +214,6 @@ func (r *ProductRepository) List(ctx context.Context, filter domain.ListFilter) 
 		)
 
 		return nil, err
-	}
-
-	items := make([]*domain.Product, 0, len(dbItems))
-
-	for i := range dbItems {
-		items = append(items, toDomainProduct(&dbItems[i]))
 	}
 
 	r.log.Info(

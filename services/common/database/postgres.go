@@ -6,13 +6,25 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/byorty/test-marketplace/services/product-service/internal/config"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 )
 
-func New(cfg config.PostgresConfig) (*bun.DB, error) {
+type PostgresConfig struct {
+	Host            string
+	Port            int
+	User            string
+	Password        string
+	Database        string
+	SSLMode         string
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
+	ConnMaxIdleTime time.Duration
+}
+
+func New(cfg PostgresConfig) (*bun.DB, error) {
 	dsn := fmt.Sprintf(
 		"postgres://%s:%d@%s:%s/%s?sslmode=%s",
 		cfg.Host,
@@ -42,7 +54,7 @@ func New(cfg config.PostgresConfig) (*bun.DB, error) {
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("ping postgres: %w", err)
 	}
 

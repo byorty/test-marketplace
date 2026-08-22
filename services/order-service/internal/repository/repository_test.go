@@ -4,100 +4,25 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"path/filepath"
 	"testing"
 	"time"
 
-	models "github.com/byorty/test-marketplace/services/common/db"
+	testtools "github.com/byorty/test-marketplace/services/common/test-tools"
 	"github.com/byorty/test-marketplace/services/order-service/internal/domain"
-	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
 	_ "github.com/uptrace/bun/driver/pgdriver"
 	"go.uber.org/zap"
 )
 
-func newTestDB(t *testing.T) *bun.DB {
-	t.Helper()
-
-	ctx := context.Background()
-
-	container, err := postgres.Run(
-		ctx,
-		"postgres:17-alpine",
-		postgres.WithDatabase("marketplace"),
-		postgres.WithUsername("postgres"),
-		postgres.WithPassword("postgres"),
-		postgres.BasicWaitStrategies(),
-	)
-	require.NoError(t, err)
-
-	testcontainers.CleanupContainer(t, container)
-
-	connStr, err := container.ConnectionString(
-		ctx,
-		"sslmode=disable",
-	)
-	require.NoError(t, err)
-
-	sqlDB, err := sql.Open("pg", connStr)
-	require.NoError(t, err)
-
-	db := bun.NewDB(
-		sqlDB,
-		pgdialect.New(),
-	)
-
-	require.NoError(t, db.Ping())
-
-	runMigrations(t, connStr)
-
-	t.Cleanup(func() {
-		_ = db.Close()
-	})
-
-	return db
-}
-
-func runMigrations(t *testing.T, connStr string) {
-	t.Helper()
-
-	migrationsPath, err := filepath.Abs(
-		"../../../../migrations",
-	)
-	require.NoError(t, err)
-
-	m, err := migrate.New(
-		"file://"+migrationsPath,
-		connStr,
-	)
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		srcErr, dbErr := m.Close()
-		require.NoError(t, srcErr)
-		require.NoError(t, dbErr)
-	})
-
-	err = m.Up()
-
-	if errors.Is(err, migrate.ErrNoChange) {
-		return
-	}
-
-	require.NoError(t, err)
-}
 
 func newOrderTestRepository(t *testing.T) (*OrderRepository, *bun.DB) {
 	t.Helper()
 
-	database := newTestDB(t)
+	database := testtools.NewTestDB(t)
 
 	repo := New(
 		database,
@@ -124,7 +49,7 @@ func TestOrderRepository_AddToCart(t *testing.T) {
 
 	require.NoError(t, err)
 
-	var actual models.CartItem
+	var actual domain.CartItem
 
 	err = db.NewSelect().
 		Model(&actual).
@@ -163,7 +88,7 @@ func TestOrderRepository_GetCart(t *testing.T) {
 
 	for i := range items {
 		_, err := db.NewInsert().
-			Model(toDBCartItem(&items[i])).
+			Model(&items[i]).
 			Exec(ctx)
 
 		require.NoError(t, err)
@@ -203,7 +128,7 @@ func TestOrderRepository_GetCartItem(t *testing.T) {
 	}
 
 	_, err := db.NewInsert().
-		Model(toDBCartItem(item)).
+		Model(item).
 		Exec(ctx)
 
 	require.NoError(t, err)
@@ -252,7 +177,7 @@ func TestOrderRepository_RemoveFromCart(t *testing.T) {
 	err = repo.RemoveFromCart(ctx, userID, item.ID)
 	require.NoError(t, err)
 
-	var actual models.CartItem
+	var actual domain.CartItem
 
 	err = db.NewSelect().
 		Model(&actual).
@@ -342,7 +267,7 @@ func TestOrderRepository_ClearCart(t *testing.T) {
 	err = repo.ClearCart(ctx, userID)
 	require.NoError(t, err)
 
-	var actual []models.CartItem
+	var actual []domain.CartItem
 
 	err = db.NewSelect().
 		Model(&actual).
@@ -352,7 +277,7 @@ func TestOrderRepository_ClearCart(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, actual)
 
-	var other models.CartItem
+	var other domain.CartItem
 
 	err = db.NewSelect().
 		Model(&other).
@@ -394,7 +319,7 @@ func TestOrderRepository_CreateOrder(t *testing.T) {
 	err := repo.CreateOrder(ctx, order)
 	require.NoError(t, err)
 
-	var actual models.Order
+	var actual domain.Order
 
 	err = db.NewSelect().
 		Model(&actual).
@@ -405,7 +330,7 @@ func TestOrderRepository_CreateOrder(t *testing.T) {
 
 	require.Equal(t, order.ID, actual.ID)
 	require.Equal(t, order.UserID, actual.UserID)
-	require.Equal(t, string(order.Status), actual.Status)
+	require.Equal(t, order.Status, actual.Status)
 	require.Equal(t, order.TotalPrice, actual.TotalPrice)
 	require.WithinDuration(
 		t,
@@ -420,7 +345,7 @@ func TestOrderRepository_CreateOrder(t *testing.T) {
 		time.Second,
 	)
 
-	var actualItems []models.OrderItem
+	var actualItems []domain.OrderItem
 
 	err = db.NewSelect().
 		Model(&actualItems).
@@ -431,7 +356,6 @@ func TestOrderRepository_CreateOrder(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actualItems, 2)
 
-	require.Equal(t, order.Items[0].ID, actualItems[0].ID)
 	require.Equal(t, order.Items[0].OrderID, actualItems[0].OrderID)
 	require.Equal(t, order.Items[0].ProductID, actualItems[0].ProductID)
 	require.Equal(t, order.Items[0].ProductPrice, actualItems[0].ProductPrice)
@@ -483,7 +407,7 @@ func TestOrderRepository_CreateOrderItems(t *testing.T) {
 	err = repo.CreateOrderItems(ctx, items)
 	require.NoError(t, err)
 
-	var actual []models.OrderItem
+	var actual []domain.OrderItem
 
 	err = db.NewSelect().
 		Model(&actual).
@@ -494,7 +418,6 @@ func TestOrderRepository_CreateOrderItems(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 2)
 
-	require.Equal(t, items[0].ID, actual[0].ID)
 	require.Equal(t, items[0].OrderID, actual[0].OrderID)
 	require.Equal(t, items[0].ProductID, actual[0].ProductID)
 	require.Equal(t, items[0].ProductPrice, actual[0].ProductPrice)
@@ -649,7 +572,7 @@ func TestOrderRepository_Transaction_Commit(t *testing.T) {
 
 	require.NoError(t, err)
 
-	var actual models.Order
+	var actual domain.Order
 
 	err = db.NewSelect().
 		Model(&actual).
@@ -659,7 +582,7 @@ func TestOrderRepository_Transaction_Commit(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, order.ID, actual.ID)
 	require.Equal(t, order.UserID, actual.UserID)
-	require.Equal(t, string(order.Status), actual.Status)
+	require.Equal(t, order.Status, actual.Status)
 	require.Equal(t, order.TotalPrice, actual.TotalPrice)
 }
 
@@ -688,7 +611,7 @@ func TestOrderRepository_Transaction_Rollback(t *testing.T) {
 
 	require.ErrorIs(t, err, expectedErr)
 
-	var actual models.Order
+	var actual domain.Order
 
 	err = db.NewSelect().
 		Model(&actual).

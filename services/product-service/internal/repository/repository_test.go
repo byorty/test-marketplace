@@ -3,102 +3,27 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"errors"
-	"path/filepath"
 	"testing"
 	"time"
 
-	models "github.com/byorty/test-marketplace/services/common/db"
+	testtools "github.com/byorty/test-marketplace/services/common/test-tools"
 	"github.com/byorty/test-marketplace/services/product-service/internal/domain"
-	"github.com/golang-migrate/migrate/v4"
+
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
 
 	_ "github.com/uptrace/bun/driver/pgdriver"
 	"go.uber.org/zap"
 )
 
-func newTestDB(t *testing.T) *bun.DB {
-	t.Helper()
-
-	ctx := context.Background()
-
-	container, err := postgres.Run(
-		ctx,
-		"postgres:17-alpine",
-		postgres.WithDatabase("marketplace"),
-		postgres.WithUsername("postgres"),
-		postgres.WithPassword("postgres"),
-		postgres.BasicWaitStrategies(),
-	)
-	require.NoError(t, err)
-
-	testcontainers.CleanupContainer(t, container)
-
-	connStr, err := container.ConnectionString(
-		ctx,
-		"sslmode=disable",
-	)
-	require.NoError(t, err)
-
-	sqlDB, err := sql.Open("pg", connStr)
-	require.NoError(t, err)
-
-	db := bun.NewDB(
-		sqlDB,
-		pgdialect.New(),
-	)
-
-	require.NoError(t, db.Ping())
-
-	runMigrations(t, connStr)
-
-	t.Cleanup(func() {
-		_ = db.Close()
-	})
-
-	return db
-}
-
-func runMigrations(t *testing.T, connStr string) {
-	t.Helper()
-
-	migrationsPath, err := filepath.Abs(
-		"../../../../migrations",
-	)
-	require.NoError(t, err)
-
-	m, err := migrate.New(
-		"file://"+migrationsPath,
-		connStr,
-	)
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		srcErr, dbErr := m.Close()
-		require.NoError(t, srcErr)
-		require.NoError(t, dbErr)
-	})
-
-	err = m.Up()
-
-	if errors.Is(err, migrate.ErrNoChange) {
-		return
-	}
-
-	require.NoError(t, err)
-}
 
 func newProductTestRepository(t *testing.T) (*ProductRepository, *bun.DB) {
 	t.Helper()
 
-	database := newTestDB(t)
+	database := testtools.NewTestDB(t)
 
 	repo := New(
 		database,
@@ -135,7 +60,7 @@ func TestRepository_Create(t *testing.T) {
 
 	require.NoError(t, err)
 
-	var actual models.Product
+	var actual domain.Product
 
 	err = db.NewSelect().
 		Model(&actual).
@@ -161,7 +86,7 @@ func TestRepository_GetByID(t *testing.T) {
 	product := newTestProduct()
 
 	_, err := db.NewInsert().
-		Model(toDBProduct(product)).
+		Model(product).
 		Exec(ctx)
 
 	require.NoError(t, err)
@@ -203,7 +128,7 @@ func TestRepository_Update(t *testing.T) {
 	product.UpdatedAt = product.CreatedAt
 
 	_, err := db.NewInsert().
-		Model(toDBProduct(product)).
+		Model(product).
 		Exec(ctx)
 
 	require.NoError(t, err)
@@ -259,7 +184,7 @@ func TestRepository_Delete(t *testing.T) {
 	product := newTestProduct()
 
 	_, err := db.NewInsert().
-		Model(toDBProduct(product)).
+		Model(product).
 		Exec(ctx)
 
 	require.NoError(t, err)
@@ -268,7 +193,7 @@ func TestRepository_Delete(t *testing.T) {
 
 	require.NoError(t, err)
 
-	var actual models.Product
+	var actual domain.Product
 
 	err = db.NewSelect().
 		Model(&actual).
@@ -332,7 +257,7 @@ func TestRepository_List(t *testing.T) {
 
 	for _, product := range products {
 		_, err := db.NewInsert().
-			Model(toDBProduct(product)).
+			Model(product).
 			Exec(ctx)
 
 		require.NoError(t, err)
@@ -395,7 +320,7 @@ func TestRepository_List_FilterAndSortByPrice(t *testing.T) {
 
 	for _, product := range products {
 		_, err := db.NewInsert().
-			Model(toDBProduct(product)).
+			Model(product).
 			Exec(ctx)
 
 		require.NoError(t, err)
@@ -440,7 +365,7 @@ func TestRepository_List_Pagination(t *testing.T) {
 		}
 
 		_, err := db.NewInsert().
-			Model(toDBProduct(product)).
+			Model(product).
 			Exec(ctx)
 
 		require.NoError(t, err)
