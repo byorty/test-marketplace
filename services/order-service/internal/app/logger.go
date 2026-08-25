@@ -1,16 +1,17 @@
 package app
 
 import (
-	"log/slog"
-	"os"
-
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
-func NewLogger() *slog.Logger {
-	return slog.New(
-		slog.NewJSONHandler(os.Stdout, nil),
-	)
+func NewLogger() *zap.Logger {
+	logger, err := zap.NewProduction()
+	if err != nil {
+		panic(err)
+	}
+
+	return logger
 }
 
 var LoggerModule = fx.Provide(NewLogger)
