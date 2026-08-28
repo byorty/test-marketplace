@@ -62,7 +62,9 @@ func toOrderResponse(o *domain.Order) api.Order {
 
 func toCreateOrderResp(order *domain.Order) api.CreateOrderResponse {
 	return api.CreateOrderResponse{
-		Id: order.ID,
-		Status: api.OrderStatus(order.Status),
+		Id:           order.ID,
+		UserId:       order.UserID,
+		Status:       api.OrderStatus(order.Status),
+		DeliveryDate: order.DeliveryDate,
 	}
 }
