@@ -67,7 +67,7 @@ func permission(r *http.Request) (rbac.Resource, rbac.Action) {
 		return rbac.ResourceCart, rbac.ActionView
 
 	case r.Method == http.MethodPost &&
-		r.URL.Path == "/order":
+		r.URL.Path == "/orders":
 
 		return rbac.ResourceOrder, rbac.ActionCreate
 
