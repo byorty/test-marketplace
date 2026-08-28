@@ -26,11 +26,11 @@ type PostgresConfig struct {
 
 func New(cfg PostgresConfig) (*bun.DB, error) {
 	dsn := fmt.Sprintf(
-		"postgres://%s:%d@%s:%s/%s?sslmode=%s",
-		cfg.Host,
-		cfg.Port,
+		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
 		cfg.User,
 		cfg.Password,
+		cfg.Host,
+		cfg.Port,
 		cfg.Database,
 		cfg.SSLMode,
 	)

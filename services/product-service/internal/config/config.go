@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/ilyakaznacheev/cleanenv"
+	"gopkg.in/yaml.v3"
 )
 
 type ProductService struct {
@@ -29,16 +29,16 @@ func (h HTTPConfig) Address() string {
 }
 
 type PostgresConfig struct {
-    Host string `yaml:"host" env:"POSTGRES_HOST" env-required:"true"`
-    Port int `yaml:"port" env:"HTTP_PORT" env-default:"5432"`
-    User string `yaml:"user" env:"POSTGRES_USER" env-default:"postgres"`
-    Password string `yaml:"password" env:"POSTGRES_PASSWORD"`
-    Database string `yaml:"database" env:"POSTGRES_DB"`
-    SSLMode string `yaml:"sslmode" env:"POSTGRES_SSLMODE" env-default:"disable"`
+	Host     string `yaml:"host" env:"POSTGRES_HOST" env-required:"true"`
+	Port     int    `yaml:"port" env:"POSTGRES_PORT" env-default:"5432"`
+	User     string `yaml:"user" env:"POSTGRES_USER" env-default:"postgres"`
+	Password string `yaml:"password" env:"POSTGRES_PASSWORD"`
+	Database string `yaml:"database" env:"POSTGRES_DB"`
+	SSLMode  string `yaml:"sslmode" env:"POSTGRES_SSLMODE" env-default:"disable"`
 
-    MaxOpenConns int `yaml:"max_open_conns" env-default:"20"`
-    MaxIdleConns int `yaml:"max_idle_conns" env-default:"10"`
-   
+	MaxOpenConns int `yaml:"max_open_conns" env-default:"20"`
+	MaxIdleConns int `yaml:"max_idle_conns" env-default:"10"`
+
 	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime" env-default:"30m"`
 	ConnMaxIdleTime time.Duration `yaml:"conn_max_idle_time" env-default:"15m"`
 }
@@ -53,16 +53,23 @@ func Load() (*Config, error) {
 		configPath = "config/config.yaml"
 	}
 
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("read config %q: %w", configPath, err)
+	}
+
+	data = []byte(os.ExpandEnv(string(data)))
+
 	var cfg Config
 
-	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
-		return nil, fmt.Errorf("read config %q: %w", configPath, err)
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("parse config %q: %w", configPath, err)
 	}
 
 	return &cfg, nil
 }
 
 type JWT struct {
-    Issuer        string `yaml:"issuer"`
-    PublicKeyPath string `yaml:"public_key_path"`
+    Issuer        string `yaml:"issuer" env:"JWT_ISSUER" env-required:"true"`
+    PublicKeyPath string `yaml:"public_key_path" env:"JWT_PUBLIC_KEY_PATH" env-required:"true"`
 }

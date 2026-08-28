@@ -17,10 +17,10 @@ func New(enforcer *casbin.Enforcer) *Authorizer {
 }
 
 func NewEnforcer() (*casbin.Enforcer, error) {
-	return casbin.NewEnforcer(
-		"internal/rbac/model.conf",
-		"internal/rbac/policy.csv",
-	)
+    return casbin.NewEnforcer(
+        "common/rbac/model.conf",
+        "common/rbac/policy.csv",
+    )
 }
 
 var ErrAccessDenied = errors.New("access denied")
