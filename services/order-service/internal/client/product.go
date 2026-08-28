@@ -10,3 +10,4 @@ import (
 type Client interface {
 	GetProduct(ctx context.Context, id uuid.UUID) (*client.ProductResponse, error)
 }
+

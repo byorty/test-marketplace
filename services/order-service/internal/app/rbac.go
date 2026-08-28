@@ -2,12 +2,19 @@ package app
 
 import (
 	"github.com/byorty/test-marketplace/services/common/rbac"
+	"github.com/byorty/test-marketplace/services/order-service/internal/domain"
+
 	"go.uber.org/fx"
 )
 
-var RBACModule = fx.Options(
+func NewDomainAuthorizer(
+    authorizer *rbac.Authorizer,
+) domain.Authorizer {
+    return authorizer
+}
 
-	fx.Provide(rbac.NewEnforcer),
-
-	fx.Provide(rbac.New),
+var RBACModule = fx.Provide(
+    rbac.NewEnforcer,
+    rbac.New,
+    NewDomainAuthorizer,
 )
