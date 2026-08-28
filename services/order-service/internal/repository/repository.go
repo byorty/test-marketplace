@@ -198,7 +198,7 @@ func (r *OrderRepository) GetOrderByID(ctx context.Context, id uuid.UUID) (*doma
 	err := r.db.NewSelect().
 		Model(order).
 		Relation("Items").
-		Where("order.id = ?", id).
+		Where("id = ?", id).
 		Scan(ctx)
 
 	if errors.Is(err, sql.ErrNoRows) {
