@@ -19,15 +19,22 @@ func toCartItemInput(userID uuid.UUID, req api.AddToCartRequest) *domain.CartIte
 func toCartResponse(cart *domain.Cart) api.Cart {
 	items := make([]api.CartItem, 0, len(cart.Items))
 
+	var userID uuid.UUID
+
 	for _, item := range cart.Items {
+		userID = item.UserID
+
 		items = append(items, api.CartItem{
+			Id:        item.ID,
+			UserId:    item.UserID,
 			ProductId: item.ProductID,
-			Quantity: int32(item.Quantity),
+			Quantity:  int32(item.Quantity),
 		})
 	}
 
 	return api.Cart{
-		Items: items,
+		UserId:     userID,
+		Items:      items,
 		TotalPrice: cart.TotalPrice,
 	}
 }

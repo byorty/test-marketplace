@@ -20,11 +20,6 @@ func NewAuth(v *auth.Validator) *Auth {
 func (m *Auth) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		if r.Method == http.MethodGet {
-			next.ServeHTTP(w, r)
-			return
-		}
-
 		header := r.Header.Get("Authorization")
 		if header == "" {
 			http.Error(w, "missing authorization header", http.StatusUnauthorized)
