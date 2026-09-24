@@ -8,13 +8,12 @@ import (
 
 func toCartItemInput(userID uuid.UUID, req api.AddToCartRequest) *domain.CartItem {
 	return &domain.CartItem{
-		ID: uuid.New(),
+		ID:        uuid.New(),
 		ProductID: req.ProductId,
-		UserID: userID,
-		Quantity: int(req.Quantity),
+		UserID:    userID,
+		Quantity:  int(req.Quantity),
 	}
 }
-
 
 func toCartResponse(cart *domain.Cart) api.Cart {
 	items := make([]api.CartItem, 0, len(cart.Items))
@@ -44,19 +43,19 @@ func toOrderResponse(o *domain.Order) api.Order {
 
 	for _, item := range o.Items {
 		items = append(items, api.OrderItem{
-			ProductId: item.ProductID,
+			ProductId:    item.ProductID,
 			ProductPrice: item.ProductPrice,
-			Quantity: int32(item.Quantity),
+			Quantity:     int32(item.Quantity),
 		})
 	}
 
 	return api.Order{
-		Id: o.ID,
-		Status: api.OrderStatus(o.Status),
-		TotalPrice: o.TotalPrice,
-		CreatedAt: o.CreatedAt,
+		Id:           o.ID,
+		Status:       api.OrderStatus(o.Status),
+		TotalPrice:   o.TotalPrice,
+		CreatedAt:    o.CreatedAt,
 		DeliveryDate: o.DeliveryDate,
-		Items: items,
+		Items:        items,
 	}
 }
 

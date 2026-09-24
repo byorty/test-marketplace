@@ -1,0 +1,606 @@
+openapi: 3.1.0
+
+info:
+  title: Delivery service API
+  description: "Delivery management microservice for marketplace"
+  version: 1.0.0
+  contact:
+    name: test-marketplace
+    email: snoomew@mail.ru
+
+paths:
+  /deliveries:
+    post:
+      security:
+        - bearerAuth: []
+      description: "Available only for employee role."
+      tags: [Deliveries]
+      summary: Create delivery
+      operationId: createDelivery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryCreateRequest"
+      responses:
+        "201":
+          description: Delivery created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryResponse"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Delivery already exists for this order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    get:
+      security:
+        - bearerAuth: []
+      description: "List deliveries. Available only for employee role."
+      tags: [Deliveries]
+      summary: List deliveries
+      operationId: getDeliveries
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/DeliveryStatus"
+        - name: is_late
+          in: query
+          schema:
+            type: boolean
+        - name: order_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: List of deliveries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryListResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /deliveries/{id}:
+    get:
+      security:
+        - bearerAuth: []
+      description: "Get delivery by ID. Customer can only access own deliveries. Employee can access any delivery."
+      tags: [Deliveries]
+      summary: Get delivery
+      operationId: getDelivery
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Delivery details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Delivery not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /deliveries/{id}/reschedule:
+    patch:
+      security:
+        - bearerAuth: []
+      description: "Reschedule delivery. Available only for employee role. Only allowed from PENDING or IN_TRANSIT status."
+      tags: [Deliveries]
+      summary: Reschedule delivery
+      operationId: rescheduleDelivery
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryRescheduleRequest"
+      responses:
+        "200":
+          description: Delivery rescheduled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryResponse"
+        "400":
+          description: Invalid input or invalid delivery status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Delivery not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /deliveries/{id}/status:
+    patch:
+      security:
+        - bearerAuth: []
+      description: "Update delivery status. Available only for employee role. Enforces state machine transitions."
+      tags: [Deliveries]
+      summary: Update delivery status
+      operationId: updateDeliveryStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryStatusUpdateRequest"
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryResponse"
+        "400":
+          description: Invalid input or invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Delivery not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /deliveries/{id}/qr:
+    get:
+      security:
+        - bearerAuth: []
+      description: "Get QR code for delivery. Available only for the customer who owns the delivery. Only available when status is READY_FOR_PICKUP."
+      tags: [QR]
+      summary: Get QR code
+      operationId: getDeliveryQR
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: QR code generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QRCodeResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Delivery not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Invalid delivery status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /deliveries/verify-qr:
+    post:
+      security:
+        - bearerAuth: []
+      description: "Verify QR code for delivery. Available only for employee role. Transitions delivery to DELIVERED on success."
+      tags: [QR]
+      summary: Verify QR code
+      operationId: verifyDeliveryQR
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyQRRequest"
+      responses:
+        "200":
+          description: QR code verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyQRResponse"
+        "400":
+          description: Invalid token or invalid delivery status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Delivery not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    DeliveryStatus:
+      type: string
+      enum:
+        - PENDING
+        - IN_TRANSIT
+        - READY_FOR_PICKUP
+        - DELIVERED
+        - CANCELLED
+
+    DeliveryCreateRequest:
+      type: object
+      required:
+        - order_id
+        - pickup_address
+        - estimated_delivery_date
+      properties:
+        order_id:
+          type: string
+          format: uuid
+          x-oapi-codegen-extra-tags:
+            validate: "required"
+        pickup_address:
+          type: string
+          minLength: 1
+          maxLength: 500
+          x-oapi-codegen-extra-tags:
+            validate: "required,min=1,max=500"
+        estimated_delivery_date:
+          type: string
+          format: date-time
+          x-oapi-codegen-extra-tags:
+            validate: "required"
+
+    DeliveryStatusUpdateRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: "#/components/schemas/DeliveryStatus"
+
+    DeliveryRescheduleRequest:
+      type: object
+      required:
+        - new_date
+      properties:
+        new_date:
+          type: string
+          format: date-time
+          x-oapi-codegen-extra-tags:
+            validate: "required"
+        reason:
+          type: string
+          maxLength: 1000
+
+    VerifyQRRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          minLength: 1
+          x-oapi-codegen-extra-tags:
+            validate: "required,min=1"
+
+    DeliveryResponse:
+      type: object
+      required:
+        - id
+        - order_id
+        - user_id
+        - status
+        - pickup_address
+        - estimated_delivery_date
+        - is_late
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/DeliveryStatus"
+        pickup_address:
+          type: string
+        estimated_delivery_date:
+          type: string
+          format: date-time
+        is_late:
+          type: boolean
+        reschedules:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliveryRescheduleResponse"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    DeliveryListResponse:
+      type: object
+      required:
+        - items
+        - total
+        - page
+        - page_size
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliveryResponse"
+        total:
+          type: integer
+          format: int64
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    DeliveryRescheduleResponse:
+      type: object
+      required:
+        - id
+        - previous_date
+        - new_date
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        previous_date:
+          type: string
+          format: date-time
+        new_date:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    QRCodeResponse:
+      type: object
+      required:
+        - token
+        - expires_at
+      properties:
+        token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+
+    VerifyQRResponse:
+      type: object
+      required:
+        - delivery_id
+        - order_id
+        - verified
+      properties:
+        delivery_id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+        verified:
+          type: boolean
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

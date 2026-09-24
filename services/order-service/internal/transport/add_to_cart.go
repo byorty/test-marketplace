@@ -8,22 +8,22 @@ import (
 )
 
 func (h *OrderHandler) AddToCart(
-	ctx context.Context, 
+	ctx context.Context,
 	req api.AddToCartRequestObject,
-	) (api.AddToCartResponseObject, error) {
+) (api.AddToCartResponseObject, error) {
 
 	claims, ok := auth.ClaimsFromContext(ctx)
 	if !ok {
 		return api.AddToCart401JSONResponse(
 			errorResponse("unauthorized", "missing jwt claims"),
-			), nil
+		), nil
 	}
 
 	input := toCartItemInput(
 		claims.UserID,
 		*req.Body,
 	)
-	
+
 	if err := h.service.AddToCart(ctx, claims.UserID, input); err != nil {
 		return mapAddToCartError(h.log, err), nil
 	}

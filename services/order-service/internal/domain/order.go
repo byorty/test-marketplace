@@ -10,20 +10,21 @@ import (
 type Status string
 
 const (
-	StatusCreated Status = "CREATED"
-	StatusPaid Status = "PAID"
+	StatusCreated    Status = "CREATED"
+	StatusPaid       Status = "PAID"
 	StatusDelivering Status = "DELIVERING"
-	StatusDelivered Status = "DELIVERED"
+	StatusDelivered  Status = "DELIVERED"
 )
+
 type Order struct {
 	bun.BaseModel `bun:"table:orders"`
 
-	ID           uuid.UUID `bun:"id,pk,type:uuid"`
-	UserID       uuid.UUID `bun:"user_id,notnull,type:uuid"`
-	Status       Status    `bun:"status,notnull,type:varchar(20)"`
-	TotalPrice        int64     `bun:"total_price,notnull"`
-	CreatedAt    time.Time `bun:"created_at,notnull"`
-	DeliveryDate time.Time `bun:"delivery_date"`
+	ID           uuid.UUID   `bun:"id,pk,type:uuid"`
+	UserID       uuid.UUID   `bun:"user_id,notnull,type:uuid"`
+	Status       Status      `bun:"status,notnull,type:varchar(20)"`
+	TotalPrice   int64       `bun:"total_price,notnull"`
+	CreatedAt    time.Time   `bun:"created_at,notnull"`
+	DeliveryDate time.Time   `bun:"delivery_date"`
 	Items        []OrderItem `bun:"rel:has-many,join:id=order_id"`
 }
 

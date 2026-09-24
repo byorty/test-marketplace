@@ -21,5 +21,3 @@ type OrderRepository interface {
 
 	Transaction(ctx context.Context, fn func(repo OrderRepository) error) error
 }
-
-

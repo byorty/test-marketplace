@@ -12,10 +12,10 @@ type ProductService struct {
 	URL string `yaml:"url"`
 }
 type Config struct {
-    HTTP HTTPConfig `yaml:"http"`
-    Postgres PostgresConfig `yaml:"postgres"`
-    Log LogConfig `yaml:"log"`
-	JWT JWT `yaml:"jwt"`
+	HTTP           HTTPConfig     `yaml:"http"`
+	Postgres       PostgresConfig `yaml:"postgres"`
+	Log            LogConfig      `yaml:"log"`
+	JWT            JWT            `yaml:"jwt"`
 	ProductService ProductService `yaml:"product_service"`
 }
 
@@ -25,27 +25,27 @@ type HTTPConfig struct {
 }
 
 func (h HTTPConfig) Address() string {
-    return fmt.Sprintf("%s:%d", h.Host, h.Port)
+	return fmt.Sprintf("%s:%d", h.Host, h.Port)
 }
 
 type PostgresConfig struct {
-    Host string `yaml:"host" env:"POSTGRES_HOST" env-required:"true"`
-    Port int `yaml:"port" env:"POSTGRES_PORT" env-default:"5432"`
-    User string `yaml:"user" env:"POSTGRES_USER" env-default:"postgres"`
-    Password string `yaml:"password" env:"POSTGRES_PASSWORD"`
-    Database string `yaml:"database" env:"POSTGRES_DB"`
-    SSLMode string `yaml:"sslmode" env:"POSTGRES_SSLMODE" env-default:"disable"`
+	Host     string `yaml:"host" env:"POSTGRES_HOST" env-required:"true"`
+	Port     int    `yaml:"port" env:"POSTGRES_PORT" env-default:"5432"`
+	User     string `yaml:"user" env:"POSTGRES_USER" env-default:"postgres"`
+	Password string `yaml:"password" env:"POSTGRES_PASSWORD"`
+	Database string `yaml:"database" env:"POSTGRES_DB"`
+	SSLMode  string `yaml:"sslmode" env:"POSTGRES_SSLMODE" env-default:"disable"`
 
-    MaxOpenConns int `yaml:"max_open_conns" env-default:"20"`
-    MaxIdleConns int `yaml:"max_idle_conns" env-default:"10"`
-   
+	MaxOpenConns int `yaml:"max_open_conns" env-default:"20"`
+	MaxIdleConns int `yaml:"max_idle_conns" env-default:"10"`
+
 	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime" env-default:"30m"`
 	ConnMaxIdleTime time.Duration `yaml:"conn_max_idle_time" env-default:"15m"`
 }
 
 type LogConfig struct {
-    Level string `yaml:"level" env:"LOG_LEVEL" env-default:"info"`
-} 
+	Level string `yaml:"level" env:"LOG_LEVEL" env-default:"info"`
+}
 
 func Load() (*Config, error) {
 	configPath := os.Getenv("CONFIG_PATH")
@@ -70,6 +70,6 @@ func Load() (*Config, error) {
 }
 
 type JWT struct {
-    Issuer        string `yaml:"issuer" env:"JWT_ISSUER" env-required:"true"`
-    PublicKeyPath string `yaml:"public_key_path" env:"JWT_PUBLIC_KEY_PATH" env-required:"true"`
+	Issuer        string `yaml:"issuer" env:"JWT_ISSUER" env-required:"true"`
+	PublicKeyPath string `yaml:"public_key_path" env:"JWT_PUBLIC_KEY_PATH" env-required:"true"`
 }

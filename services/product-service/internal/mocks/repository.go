@@ -8,18 +8,17 @@ import (
 )
 
 type MockProductRepository struct {
-	
-	CreateFunc func(context.Context, *domain.Product) error
+	CreateFunc  func(context.Context, *domain.Product) error
 	GetByIDFunc func(context.Context, uuid.UUID) (*domain.Product, error)
-	UpdateFunc func(context.Context, *domain.Product) (*domain.Product, error)
-	DeleteFunc func(context.Context, uuid.UUID) error
-	ListFunc func(context.Context, domain.ListFilter) (*domain.ProductList, error)
+	UpdateFunc  func(context.Context, *domain.Product) (*domain.Product, error)
+	DeleteFunc  func(context.Context, uuid.UUID) error
+	ListFunc    func(context.Context, domain.ListFilter) (*domain.ProductList, error)
 
-	CreateCalls int
+	CreateCalls  int
 	GetByIDCalls int
-	UpdateCalls int
-	DeleteCalls int
-	ListCalls int
+	UpdateCalls  int
+	DeleteCalls  int
+	ListCalls    int
 }
 
 func (m *MockProductRepository) Create(ctx context.Context, product *domain.Product) error {
@@ -71,5 +70,3 @@ func (m *MockProductRepository) List(ctx context.Context, filter domain.ListFilt
 
 	return m.ListFunc(ctx, filter)
 }
-
-

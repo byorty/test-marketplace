@@ -13,3 +13,11 @@ p, customer, order, create
 p, customer, order, view
 
 p, employee, order, view
+
+p, customer, delivery, view
+p, customer, delivery, get_qr
+p, employee, delivery, create
+p, employee, delivery, view
+p, employee, delivery, reschedule
+p, employee, delivery, update_status
+p, employee, delivery, verify_qr

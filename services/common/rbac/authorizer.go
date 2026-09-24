@@ -17,10 +17,10 @@ func New(enforcer *casbin.Enforcer) *Authorizer {
 }
 
 func NewEnforcer() (*casbin.Enforcer, error) {
-    return casbin.NewEnforcer(
-        "common/rbac/model.conf",
-        "common/rbac/policy.csv",
-    )
+	return casbin.NewEnforcer(
+		"common/rbac/model.conf",
+		"common/rbac/policy.csv",
+	)
 }
 
 var ErrAccessDenied = errors.New("access denied")
@@ -28,21 +28,32 @@ var ErrAccessDenied = errors.New("access denied")
 type Resource string
 
 const (
-	ResourceProduct Resource = "product"
-	ResourceCart    Resource = "cart"
-	ResourceOrder   Resource = "order"
+	ResourceProduct  Resource = "product"
+	ResourceCart     Resource = "cart"
+	ResourceOrder    Resource = "order"
+	ResourceDelivery Resource = "delivery"
+)
+
+type Role string
+
+const (
+	RoleCustomer Role = "customer"
+	RoleEmployee Role = "employee"
 )
 
 type Action string
 
 const (
-	ActionCreate Action = "create"
-	ActionView   Action = "view"
-	ActionUpdate Action = "update"
-	ActionDelete Action = "delete"
-
-	ActionAdd    Action = "add"
-	ActionRemove Action = "remove"
+	ActionCreate       Action = "create"
+	ActionView         Action = "view"
+	ActionUpdate       Action = "update"
+	ActionDelete       Action = "delete"
+	ActionAdd          Action = "add"
+	ActionRemove       Action = "remove"
+	ActionReschedule   Action = "reschedule"
+	ActionUpdateStatus Action = "update_status"
+	ActionVerifyQR     Action = "verify_qr"
+	ActionGetQR        Action = "get_qr"
 )
 
 func (a *Authorizer) Authorize(role string, resource Resource, action Action) error {
@@ -62,4 +73,3 @@ func (a *Authorizer) Authorize(role string, resource Resource, action Action) er
 func IsAccessDenied(err error) bool {
 	return errors.Is(err, ErrAccessDenied)
 }
-

@@ -15,7 +15,7 @@ type Validator struct {
 func NewValidator(publicKey *rsa.PublicKey, issuer string) *Validator {
 	return &Validator{
 		publicKey: publicKey,
-		issuer: issuer,
+		issuer:    issuer,
 	}
 }
 

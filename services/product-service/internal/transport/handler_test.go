@@ -26,9 +26,9 @@ func TestHandler_CreateProduct(t *testing.T) {
 	srvcError := errors.New("service error")
 
 	tests := []struct {
-		name string
-		req api.CreateProductRequestObject
-		mock *mocks.MockProductService
+		name        string
+		req         api.CreateProductRequestObject
+		mock        *mocks.MockProductService
 		checkResult func(t *testing.T, resp api.CreateProductResponseObject)
 	}{
 		{
@@ -36,10 +36,10 @@ func TestHandler_CreateProduct(t *testing.T) {
 
 			req: api.CreateProductRequestObject{
 				Body: &api.ProductCreateRequest{
-					Name: "iPhone 17 Pro",
-					Description: "Best phone",
-					Category: "Electronics",
-					Price: 120000,
+					Name:         "iPhone 17 Pro",
+					Description:  "Best phone",
+					Category:     "Electronics",
+					Price:        120000,
 					DeliveryDays: 3,
 				},
 			},
@@ -47,15 +47,15 @@ func TestHandler_CreateProduct(t *testing.T) {
 			mock: &mocks.MockProductService{
 				CreateFunc: func(ctx context.Context, input *api.ProductCreateRequest) (*domain.Product, error) {
 					return &domain.Product{
-						ID: uuid.New(),
-						Name: input.Name,
-						Description: input.Description,
-						Category: input.Category,
-						Price: input.Price,
+						ID:           uuid.New(),
+						Name:         input.Name,
+						Description:  input.Description,
+						Category:     input.Category,
+						Price:        input.Price,
 						DeliveryDays: input.DeliveryDays,
-						Rating: 0,
-						CreatedAt: time.Now(),
-						UpdatedAt: time.Now(),
+						Rating:       0,
+						CreatedAt:    time.Now(),
+						UpdatedAt:    time.Now(),
 					}, nil
 				},
 			},
@@ -127,7 +127,7 @@ func TestHandler_CreateProduct(t *testing.T) {
 
 			handler := &ProductHandler{
 				service: tt.mock,
-				log: newTestLogger(),
+				log:     newTestLogger(),
 			}
 
 			resp, err := handler.CreateProduct(context.Background(), tt.req)
@@ -152,21 +152,21 @@ func TestHandler_GetByID(t *testing.T) {
 	srvcErr := errors.New("service error")
 
 	product := &domain.Product{
-		ID: uuid.New(),
-		Name: "iPhone 17",
-		Description: "Best phone",
-		Category: "Electronics",
-		Price: 100000,
+		ID:           uuid.New(),
+		Name:         "iPhone 17",
+		Description:  "Best phone",
+		Category:     "Electronics",
+		Price:        100000,
 		DeliveryDays: 5,
-		Rating: 4.8,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		Rating:       4.8,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}
 
 	tests := []struct {
-		name string
-		req api.GetByIDRequestObject
-		mock *mocks.MockProductService
+		name        string
+		req         api.GetByIDRequestObject
+		mock        *mocks.MockProductService
 		checkResult func(t *testing.T, resp api.GetByIDResponseObject)
 	}{
 		{
@@ -249,7 +249,7 @@ func TestHandler_GetByID(t *testing.T) {
 
 			handler := &ProductHandler{
 				service: tt.mock,
-				log: newTestLogger(),
+				log:     newTestLogger(),
 			}
 
 			resp, err := handler.GetByID(context.Background(), tt.req)
@@ -276,9 +276,9 @@ func TestHandler_DeleteProduct(t *testing.T) {
 	srvcErr := errors.New("service error")
 
 	tests := []struct {
-		name string
-		req api.DeleteProductRequestObject
-		mock *mocks.MockProductService
+		name        string
+		req         api.DeleteProductRequestObject
+		mock        *mocks.MockProductService
 		checkResult func(t *testing.T, resp api.DeleteProductResponseObject)
 	}{
 		{
@@ -351,13 +351,13 @@ func TestHandler_DeleteProduct(t *testing.T) {
 
 			handler := &ProductHandler{
 				service: tt.mock,
-				log: newTestLogger(),
+				log:     newTestLogger(),
 			}
 
 			resp, err := handler.DeleteProduct(context.Background(), tt.req)
 
 			require.NoError(t, err)
-			
+
 			tt.checkResult(t, resp)
 
 			require.Equal(t, 1, tt.mock.DeleteCalls)
@@ -381,9 +381,9 @@ func TestHandler_UpdateProduct(t *testing.T) {
 	price := int64(100000)
 
 	tests := []struct {
-		name string
-		req api.UpdateProductRequestObject
-		mock *mocks.MockProductService
+		name        string
+		req         api.UpdateProductRequestObject
+		mock        *mocks.MockProductService
 		checkResult func(t *testing.T, resp api.UpdateProductResponseObject)
 	}{
 		{
@@ -392,7 +392,7 @@ func TestHandler_UpdateProduct(t *testing.T) {
 			req: api.UpdateProductRequestObject{
 				Id: requestID,
 				Body: &api.ProductUpdateRequest{
-					Name: &name,
+					Name:  &name,
 					Price: &price,
 				},
 			},
@@ -439,7 +439,7 @@ func TestHandler_UpdateProduct(t *testing.T) {
 			name: "validation error",
 
 			req: api.UpdateProductRequestObject{
-				Id: uuid.New(),
+				Id:   uuid.New(),
 				Body: &api.ProductUpdateRequest{},
 			},
 
@@ -461,7 +461,7 @@ func TestHandler_UpdateProduct(t *testing.T) {
 			name: "empty update",
 
 			req: api.UpdateProductRequestObject{
-				Id: uuid.New(),
+				Id:   uuid.New(),
 				Body: &api.ProductUpdateRequest{},
 			},
 
@@ -483,7 +483,7 @@ func TestHandler_UpdateProduct(t *testing.T) {
 			name: "product not found",
 
 			req: api.UpdateProductRequestObject{
-				Id: uuid.New(),
+				Id:   uuid.New(),
 				Body: &api.ProductUpdateRequest{},
 			},
 
@@ -505,7 +505,7 @@ func TestHandler_UpdateProduct(t *testing.T) {
 			name: "internal error",
 
 			req: api.UpdateProductRequestObject{
-				Id: uuid.New(),
+				Id:   uuid.New(),
 				Body: &api.ProductUpdateRequest{},
 			},
 
@@ -533,7 +533,7 @@ func TestHandler_UpdateProduct(t *testing.T) {
 
 			handler := &ProductHandler{
 				service: tt.mock,
-				log: newTestLogger(),
+				log:     newTestLogger(),
 			}
 
 			resp, err := handler.UpdateProduct(context.Background(), tt.req)
@@ -560,21 +560,21 @@ func TestHandler_GetProducts(t *testing.T) {
 	srvcErr := errors.New("service error")
 
 	product := &domain.Product{
-		ID: uuid.New(),
-		Name: "iPhone 17",
-		Description: "Best phone",
-		Category: "Electronics",
-		Price: 100000,
+		ID:           uuid.New(),
+		Name:         "iPhone 17",
+		Description:  "Best phone",
+		Category:     "Electronics",
+		Price:        100000,
 		DeliveryDays: 3,
-		Rating: 4.8,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		Rating:       4.8,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}
-	
+
 	tests := []struct {
-		name string
-		req api.GetProductsRequestObject
-		mock *mocks.MockProductService
+		name        string
+		req         api.GetProductsRequestObject
+		mock        *mocks.MockProductService
 		checkResult func(t *testing.T, resp api.GetProductsResponseObject)
 	}{
 		{
@@ -582,7 +582,7 @@ func TestHandler_GetProducts(t *testing.T) {
 
 			req: api.GetProductsRequestObject{
 				Params: api.GetProductsParams{
-					Page: &page,
+					Page:     &page,
 					PageSize: &pageSize,
 				},
 			},
@@ -590,12 +590,12 @@ func TestHandler_GetProducts(t *testing.T) {
 			mock: &mocks.MockProductService{
 				ListFunc: func(ctx context.Context, filter domain.ListFilter) (*domain.ProductList, error) {
 					require.Equal(t, 1, filter.Page)
-					require.Equal(t, 10, filter.PageSize) 
+					require.Equal(t, 10, filter.PageSize)
 
 					return &domain.ProductList{
-						Items: []*domain.Product{product},
-						Total: 1,
-						Page: 1,
+						Items:    []*domain.Product{product},
+						Total:    1,
+						Page:     1,
 						PageSize: 10,
 					}, nil
 				},
@@ -659,14 +659,14 @@ func TestHandler_GetProducts(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt 
+		tt := tt
 
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
 			handler := &ProductHandler{
 				service: tt.mock,
-				log: newTestLogger(),
+				log:     newTestLogger(),
 			}
 
 			resp, err := handler.GetProducts(context.Background(), tt.req)

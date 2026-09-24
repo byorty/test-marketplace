@@ -14,7 +14,7 @@ import (
 )
 
 func RunServer(
-	
+
 	lifecycle fx.Lifecycle,
 
 	handler *httptransport.OrderHandler,
@@ -26,13 +26,13 @@ func RunServer(
 	jwt *auth.Validator,
 
 	authorizer *rbac.Authorizer,
-	
-)	{
-	
+
+) {
+
 	router := httptransport.NewRouter(handler, jwt, authorizer)
 
 	server := &http.Server{
-		Addr: cfg.HTTP.Address(),
+		Addr:    cfg.HTTP.Address(),
 		Handler: router,
 	}
 

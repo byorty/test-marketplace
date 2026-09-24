@@ -8,13 +8,13 @@ import (
 )
 
 func NewDomainAuthorizer(
-    authorizer *rbac.Authorizer,
+	authorizer *rbac.Authorizer,
 ) domain.Authorizer {
-    return authorizer
+	return authorizer
 }
 
 var RBACModule = fx.Provide(
-    rbac.NewEnforcer,
-    rbac.New,
-    NewDomainAuthorizer,
+	rbac.NewEnforcer,
+	rbac.New,
+	NewDomainAuthorizer,
 )

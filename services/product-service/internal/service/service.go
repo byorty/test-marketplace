@@ -13,15 +13,15 @@ import (
 )
 
 type ProductService struct {
-	repo domain.ProductRepository
-	log *zap.Logger
+	repo     domain.ProductRepository
+	log      *zap.Logger
 	validate *validator.Validate
 }
 
 func New(log *zap.Logger, repo domain.ProductRepository, validate *validator.Validate) *ProductService {
 	return &ProductService{
-		repo: repo,
-		log: log.Named("product-service"),
+		repo:     repo,
+		log:      log.Named("product-service"),
 		validate: validate,
 	}
 }

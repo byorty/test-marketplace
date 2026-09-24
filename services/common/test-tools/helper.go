@@ -5,8 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	_ "github.com/golang-migrate/migrate/v4/database/pgx"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -38,7 +42,7 @@ func NewTestDB(t *testing.T) *bun.DB {
 	)
 	require.NoError(t, err)
 
-	sqlDB, err := sql.Open("pg", connStr)
+	sqlDB, err := sql.Open("pgx", connStr)
 	require.NoError(t, err)
 
 	db := bun.NewDB(
@@ -60,6 +64,8 @@ func NewTestDB(t *testing.T) *bun.DB {
 func runMigrations(t *testing.T, connStr string) {
 	t.Helper()
 
+	pgxConnStr := strings.Replace(connStr, "postgres://", "pgx://", 1)
+
 	migrationsPath, err := filepath.Abs(
 		"../../../../migrations",
 	)
@@ -67,7 +73,7 @@ func runMigrations(t *testing.T, connStr string) {
 
 	m, err := migrate.New(
 		"file://"+migrationsPath,
-		connStr,
+		pgxConnStr,
 	)
 	require.NoError(t, err)
 

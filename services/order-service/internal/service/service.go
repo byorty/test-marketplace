@@ -15,7 +15,7 @@ import (
 
 type OrderService struct {
 	repo domain.OrderRepository
-	log *zap.Logger
+	log  *zap.Logger
 
 	productClient client.Client
 }
@@ -23,7 +23,7 @@ type OrderService struct {
 func New(repo domain.OrderRepository, log *zap.Logger, productClient client.Client) *OrderService {
 	return &OrderService{
 		repo: repo,
-		log: log.Named("order-service"),
+		log:  log.Named("order-service"),
 
 		productClient: productClient,
 	}
@@ -161,7 +161,7 @@ func (s *OrderService) GetCart(ctx context.Context, userID uuid.UUID) (*domain.C
 	)
 
 	return &domain.Cart{
-		Items:      items,
+		Items: items,
 	}, nil
 }
 
@@ -250,7 +250,7 @@ func (s *OrderService) GetOrderByID(ctx context.Context, userID, orderID uuid.UU
 	if err != nil {
 		return nil, fmt.Errorf("get order: %w", err)
 	}
-	
+
 	if order.UserID != userID {
 		s.log.Warn(
 			"order does not belong to user",
@@ -258,7 +258,7 @@ func (s *OrderService) GetOrderByID(ctx context.Context, userID, orderID uuid.UU
 			zap.String("order_id", orderID.String()),
 			zap.String("order_user_id", order.UserID.String()),
 		)
-		return nil, ErrForbidden 
+		return nil, ErrForbidden
 	}
 
 	s.log.Debug(
@@ -389,7 +389,7 @@ func (s *OrderService) CreateOrder(ctx context.Context, userID uuid.UUID) (*doma
 		ID:           orderID,
 		UserID:       userID,
 		Status:       domain.StatusCreated,
-		TotalPrice:        total,
+		TotalPrice:   total,
 		CreatedAt:    time.Now(),
 		DeliveryDate: time.Now().Add(time.Duration(deliveryDays) * 24 * time.Hour),
 	}
@@ -423,4 +423,3 @@ func (s *OrderService) CreateOrder(ctx context.Context, userID uuid.UUID) (*doma
 
 	return order, nil
 }
-

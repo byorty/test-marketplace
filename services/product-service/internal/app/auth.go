@@ -17,4 +17,5 @@ func NewJWTValidator(cfg *config.Config) (*auth.Validator, error) {
 		cfg.JWT.Issuer,
 	), nil
 }
+
 var AuthModule = fx.Provide(NewJWTValidator)

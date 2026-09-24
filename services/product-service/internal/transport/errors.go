@@ -12,7 +12,7 @@ import (
 
 func errorResponse(code, message string) api.Error {
 	return api.Error{
-		Code: code,
+		Code:    code,
 		Message: message,
 	}
 }

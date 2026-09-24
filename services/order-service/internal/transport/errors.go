@@ -12,7 +12,7 @@ import (
 
 func errorResponse(code, message string) api.ErrorResponse {
 	return api.ErrorResponse{
-		Code: code,
+		Code:    code,
 		Message: message,
 	}
 }
@@ -47,9 +47,9 @@ func mapAddToCartError(log *zap.Logger, err error) api.AddToCartResponseObject {
 
 func mapGetCartError(log *zap.Logger, err error) api.GetCartResponseObject {
 	log.Error(
-			"get cart failed",
-			zap.Error(err),
-		)
+		"get cart failed",
+		zap.Error(err),
+	)
 
 	return api.GetCart500JSONResponse(
 		errorResponse("internal_error", http.StatusText(http.StatusInternalServerError)),
