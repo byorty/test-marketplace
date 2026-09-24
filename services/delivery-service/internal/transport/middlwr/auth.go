@@ -41,6 +41,7 @@ func (m *Auth) Handler(next http.Handler) http.Handler {
 		}
 
 		ctx := auth.ContextWithClaims(r.Context(), claims)
+		ctx = auth.ContextWithToken(ctx, token)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

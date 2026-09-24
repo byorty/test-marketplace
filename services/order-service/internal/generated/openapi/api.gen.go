@@ -89,6 +89,7 @@ type Order struct {
 	Items        []OrderItem        `json:"items"`
 	Status       OrderStatus        `json:"status"`
 	TotalPrice   int64              `json:"total_price"`
+	UserId       openapi_types.UUID `json:"user_id"`
 }
 
 // OrderItem defines model for OrderItem.

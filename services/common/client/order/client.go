@@ -3,9 +3,11 @@ package order
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
+	"github.com/byorty/test-marketplace/services/common/auth"
 	"github.com/google/uuid"
 )
 
@@ -28,12 +30,19 @@ func NewOrderClient(baseURL string) *OrderClient {
 }
 
 func (c *OrderClient) GetOrderByID(ctx context.Context, orderID uuid.UUID) (*OrderResponse, error) {
-	url := fmt.Sprintf("%s/api/v1/orders/%s", c.baseURL, orderID.String())
+	url := fmt.Sprintf("%s/orders/%s", c.baseURL, orderID.String())
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
+
+	token, ok := auth.TokenFromContext(ctx)
+	if !ok {
+		return nil, errors.New("authorization token not found in context")
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -43,6 +52,10 @@ func (c *OrderClient) GetOrderByID(ctx context.Context, orderID uuid.UUID) (*Ord
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, ErrOrderNotFound
+	}
+
+	if resp.StatusCode == http.StatusForbidden {
+		return nil, ErrForbidden
 	}
 
 	if resp.StatusCode != http.StatusOK {

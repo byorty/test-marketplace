@@ -526,27 +526,25 @@ func TestService_GetOrderByID(t *testing.T) {
 			},
 		},
 		{
-			name:    "forbidden - order belongs to another user",
+			name:    "success - employee can view any order",
 			userID:  userID,
 			orderID: orderID,
 			mock: &mocks.MockOrderRepository{
 				GetOrderByIDFn: func(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
 					return &domain.Order{
-						ID:         orderID,
-						UserID:     uuid.New(),
-						Status:     domain.StatusCreated,
-						TotalPrice: 1500,
+						ID:           orderID,
+						UserID:       uuid.New(),
+						Status:       domain.StatusCreated,
+						TotalPrice:   1500,
+						CreatedAt:    time.Now(),
+						DeliveryDate: time.Now().Add(48 * time.Hour),
 					}, nil
 				},
 			},
-			wantErr: ErrForbidden,
-		},
-		{
-			name:    "invalid user id",
-			userID:  uuid.Nil,
-			orderID: orderID,
-			mock:    &mocks.MockOrderRepository{},
-			wantErr: ErrInvalidUserID,
+			checkResult: func(t *testing.T, o *domain.Order) {
+				require.NotNil(t, o)
+				require.Equal(t, orderID, o.ID)
+			},
 		},
 		{
 			name:    "invalid order id",

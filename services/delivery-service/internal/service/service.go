@@ -111,7 +111,7 @@ func (s *DeliveryService) Create(ctx context.Context, input *domain.DeliveryCrea
 	delivery := &domain.Delivery{
 		ID:                    uuid.New(),
 		OrderID:               input.OrderID,
-		UserID:                input.UserID,
+		UserID:                order.UserID,
 		Status:                domain.DeliveryStatusPending,
 		PickupAddress:         input.PickupAddress,
 		EstimatedDeliveryDate: input.EstimatedDeliveryDate,

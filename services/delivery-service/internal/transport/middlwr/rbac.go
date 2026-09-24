@@ -22,7 +22,7 @@ func NewAuthorization(a *rbac.Authorizer) *Authorization {
 func (m *Authorization) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := auth.ClaimsFromContext(r.Context())
-		if !ok { 
+		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -30,12 +30,12 @@ func (m *Authorization) Handler(next http.Handler) http.Handler {
 		resource, action := permission(r)
 
 		fmt.Printf(
-    		"RBAC DEBUG: role=%q resource=%q action=%q path=%q\n",
-   			claims.Role,
-    		resource,
-    		action,
-    		r.URL.Path,
-			)	
+			"RBAC DEBUG: role=%q resource=%q action=%q path=%q\n",
+			claims.Role,
+			resource,
+			action,
+			r.URL.Path,
+		)
 
 		if err := m.authorizer.Authorize(
 			claims.Role,

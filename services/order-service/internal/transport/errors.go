@@ -84,6 +84,11 @@ func mapGetOrderByIDError(log *zap.Logger, err error) api.GetOrderByIDResponseOb
 			errorResponse("order_not_found", err.Error()),
 		)
 
+	case errors.Is(err, service.ErrForbidden):
+		return api.GetOrderByID403JSONResponse(
+			errorResponse("forbidden", err.Error()),
+		)
+
 	default:
 		log.Error(
 			"get order by id failed",
