@@ -10,36 +10,34 @@ import (
 )
 
 type MockOrderRepository struct {
-	
-	AddToCartFn func(ctx context.Context, userID uuid.UUID, item *domain.CartItem) error
-	GetCartFn func(ctx context.Context, userID uuid.UUID) ([]domain.CartItem, error)
-	GetCartItemFn func(ctx context.Context, userID uuid.UUID, productID uuid.UUID) (*domain.CartItem, error)
+	AddToCartFn      func(ctx context.Context, userID uuid.UUID, item *domain.CartItem) error
+	GetCartFn        func(ctx context.Context, userID uuid.UUID) ([]domain.CartItem, error)
+	GetCartItemFn    func(ctx context.Context, userID uuid.UUID, productID uuid.UUID) (*domain.CartItem, error)
 	RemoveFromCartFn func(ctx context.Context, userID uuid.UUID, productID uuid.UUID) error
-	ClearCartFn func(ctx context.Context, userID uuid.UUID) error
+	ClearCartFn      func(ctx context.Context, userID uuid.UUID) error
 
-	CreateOrderFn func(ctx context.Context, order *domain.Order) error
+	CreateOrderFn      func(ctx context.Context, order *domain.Order) error
 	CreateOrderItemsFn func(ctx context.Context, items []domain.OrderItem) error
-	GetOrderByIDFn func(ctx context.Context, id uuid.UUID) (*domain.Order, error)
-	GetOrderItemsFn func(ctx context.Context, orderID uuid.UUID) ([]domain.OrderItem, error)
+	GetOrderByIDFn     func(ctx context.Context, id uuid.UUID) (*domain.Order, error)
+	GetOrderItemsFn    func(ctx context.Context, orderID uuid.UUID) ([]domain.OrderItem, error)
 
 	TransactionFn func(ctx context.Context, fn func(repo domain.OrderRepository) error) error
 
-	AddToCartFnCalls int
-	GetCartFnCalls int
-	GetCartItemFnCalls int
+	AddToCartFnCalls      int
+	GetCartFnCalls        int
+	GetCartItemFnCalls    int
 	RemoveFromCartFnCalls int
-	ClearCartFnCalls int
+	ClearCartFnCalls      int
 
-	CreateOrderFnCalls int
+	CreateOrderFnCalls      int
 	CreateOrderItemsFnCalls int
-	GetOrderByIDFnCalls int
-	GetOrderItemsFnCalls int
+	GetOrderByIDFnCalls     int
+	GetOrderItemsFnCalls    int
 
 	TransactionFnCalls int
 
 	Self domain.OrderRepository
 }
-
 
 func (m *MockOrderRepository) AddToCart(ctx context.Context, userID uuid.UUID, item *domain.CartItem) error {
 	m.AddToCartFnCalls++
@@ -148,7 +146,7 @@ func (m *MockOrderRepository) Transaction(ctx context.Context, fn func(repo doma
 }
 
 type MockProductClient struct {
-	GetProductFn func(ctx context.Context, id uuid.UUID) (*client.ProductResponse, error) 
+	GetProductFn func(ctx context.Context, id uuid.UUID) (*client.ProductResponse, error)
 
 	GetProductFnCalls int
 }

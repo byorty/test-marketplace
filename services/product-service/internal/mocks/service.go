@@ -9,17 +9,17 @@ import (
 )
 
 type MockProductService struct {
-	CreateFunc func(context.Context, *api.ProductCreateRequest) (*domain.Product, error)
+	CreateFunc  func(context.Context, *api.ProductCreateRequest) (*domain.Product, error)
 	GetByIDFunc func(context.Context, uuid.UUID) (*domain.Product, error)
-	UpdateFunc func(context.Context, uuid.UUID, *api.ProductUpdateRequest) (*domain.Product, error)
-	DeleteFunc func(context.Context, uuid.UUID) error
-	ListFunc func(context.Context, domain.ListFilter) (*domain.ProductList, error)
+	UpdateFunc  func(context.Context, uuid.UUID, *api.ProductUpdateRequest) (*domain.Product, error)
+	DeleteFunc  func(context.Context, uuid.UUID) error
+	ListFunc    func(context.Context, domain.ListFilter) (*domain.ProductList, error)
 
-	CreateCalls int
+	CreateCalls  int
 	GetByIDCalls int
-	UpdateCalls int
-	DeleteCalls int
-	ListCalls int
+	UpdateCalls  int
+	DeleteCalls  int
+	ListCalls    int
 }
 
 func (m *MockProductService) Create(ctx context.Context, input *api.ProductCreateRequest) (*domain.Product, error) {

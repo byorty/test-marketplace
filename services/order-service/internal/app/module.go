@@ -5,7 +5,7 @@ import "go.uber.org/fx"
 var Module = fx.Options(
 
 	ConfigModule,
-	
+
 	LoggerModule,
 
 	DatabaseModule,
@@ -15,9 +15,9 @@ var Module = fx.Options(
 	RBACModule,
 
 	RepositoryModule,
-	
+
 	ServiceModule,
-	
+
 	HandlerModule,
 
 	ServerModule,

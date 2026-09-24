@@ -12,10 +12,10 @@ type ProductService struct {
 	URL string `yaml:"url"`
 }
 type Config struct {
-    HTTP HTTPConfig `yaml:"http"`
-    Postgres PostgresConfig `yaml:"postgres"`
-    Log LogConfig `yaml:"log"`
-	JWT JWT `yaml:"jwt"`
+	HTTP           HTTPConfig     `yaml:"http"`
+	Postgres       PostgresConfig `yaml:"postgres"`
+	Log            LogConfig      `yaml:"log"`
+	JWT            JWT            `yaml:"jwt"`
 	ProductService ProductService `yaml:"product_service"`
 }
 
@@ -25,7 +25,7 @@ type HTTPConfig struct {
 }
 
 func (h HTTPConfig) Address() string {
-    return fmt.Sprintf("%s:%d", h.Host, h.Port)
+	return fmt.Sprintf("%s:%d", h.Host, h.Port)
 }
 
 type PostgresConfig struct {
@@ -44,8 +44,8 @@ type PostgresConfig struct {
 }
 
 type LogConfig struct {
-    Level string `yaml:"level" env:"LOG_LEVEL" env-default:"info"`
-} 
+	Level string `yaml:"level" env:"LOG_LEVEL" env-default:"info"`
+}
 
 func Load() (*Config, error) {
 	configPath := os.Getenv("CONFIG_PATH")
@@ -70,6 +70,6 @@ func Load() (*Config, error) {
 }
 
 type JWT struct {
-    Issuer        string `yaml:"issuer" env:"JWT_ISSUER" env-required:"true"`
-    PublicKeyPath string `yaml:"public_key_path" env:"JWT_PUBLIC_KEY_PATH" env-required:"true"`
+	Issuer        string `yaml:"issuer" env:"JWT_ISSUER" env-required:"true"`
+	PublicKeyPath string `yaml:"public_key_path" env:"JWT_PUBLIC_KEY_PATH" env-required:"true"`
 }

@@ -1,0 +1,22 @@
+http:
+  host: 0.0.0.0
+  port: 8082
+
+postgres:
+  host: ${POSTGRES_HOST}
+  port: ${POSTGRES_PORT}
+  database: ${POSTGRES_DB}
+  user: ${POSTGRES_USER}
+  password: ${POSTGRES_PASSWORD}
+  sslmode: ${POSTGRES_SSLMODE}
+
+jwt:
+  issuer: ${JWT_ISSUER}
+  public_key_path: ${JWT_PUBLIC_KEY_PATH}
+
+order_service:
+  url: ${ORDER_SERVICE_URL}
+
+qr:
+  secret_key: ${QR_SECRET_KEY}
+  token_ttl: ${QR_TOKEN_TTL}

@@ -1,0 +1,47 @@
+package middlwr
+
+import (
+	"net/http"
+	"strings"
+
+	"github.com/byorty/test-marketplace/services/common/auth"
+)
+
+type Auth struct {
+	validator *auth.Validator
+}
+
+func NewAuth(v *auth.Validator) *Auth {
+	return &Auth{
+		validator: v,
+	}
+}
+
+func (m *Auth) Handler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		header := r.Header.Get("Authorization")
+		if header == "" {
+			http.Error(w, "missing authorization header", http.StatusUnauthorized)
+			return
+		}
+
+		const prefix = "Bearer "
+
+		if !strings.HasPrefix(header, prefix) {
+			http.Error(w, "invalid authorization header", http.StatusUnauthorized)
+			return
+		}
+
+		token := strings.TrimPrefix(header, prefix)
+
+		claims, err := m.validator.Parse(token)
+		if err != nil {
+			http.Error(w, "invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		ctx := auth.ContextWithClaims(r.Context(), claims)
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}

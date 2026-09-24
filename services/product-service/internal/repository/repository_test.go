@@ -19,7 +19,6 @@ import (
 	"go.uber.org/zap"
 )
 
-
 func newProductTestRepository(t *testing.T) (*ProductRepository, *bun.DB) {
 	t.Helper()
 

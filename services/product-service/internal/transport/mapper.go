@@ -7,15 +7,15 @@ import (
 
 func toResponse(product *domain.Product) api.ProductResponse {
 	return api.ProductResponse{
-		Id: product.ID,
-		Name: product.Name,
-		Description: product.Description,
+		Id:           product.ID,
+		Name:         product.Name,
+		Description:  product.Description,
 		DeliveryDays: product.DeliveryDays,
-		Category: product.Category,
-		Price: product.Price,
-		Rating: product.Rating,
-		CreatedAt: product.CreatedAt,
-		UpdatedAt: product.UpdatedAt,
+		Category:     product.Category,
+		Price:        product.Price,
+		Rating:       product.Rating,
+		CreatedAt:    product.CreatedAt,
+		UpdatedAt:    product.UpdatedAt,
 	}
 }
 
@@ -27,18 +27,18 @@ func toProductList(list *domain.ProductList) api.ProductListResponse {
 	}
 
 	return api.ProductListResponse{
-		Items: items,
-		Total: list.Total,
-		Page: list.Page,
+		Items:    items,
+		Total:    list.Total,
+		Page:     list.Page,
 		PageSize: list.PageSize,
 	}
 }
 
 func toListFilter(params api.GetProductsParams) domain.ListFilter {
 	filter := domain.ListFilter{
-		Page: 1,
+		Page:     1,
 		PageSize: 20,
-		Order: domain.Asc,
+		Order:    domain.Asc,
 	}
 
 	if params.Name != nil {

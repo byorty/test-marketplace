@@ -8,7 +8,7 @@ import (
 )
 
 func (h *OrderHandler) RemoveFromCart(
-	ctx context.Context, 
+	ctx context.Context,
 	req api.RemoveFromCartRequestObject,
 ) (api.RemoveFromCartResponseObject, error) {
 

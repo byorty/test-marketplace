@@ -15,11 +15,11 @@ const (
 )
 
 type ListFilter struct {
-	Name         string
-	Category     string
-	MinPrice     *int64
-	MaxPrice     *int64
-	MinRating    *float32
+	Name            string
+	Category        string
+	MinPrice        *int64
+	MaxPrice        *int64
+	MinRating       *float32
 	MaxDeliveryDays *int
 
 	SortBy SortBy

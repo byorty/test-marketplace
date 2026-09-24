@@ -16,15 +16,13 @@ func (h *OrderHandler) GetCart(
 	if !ok {
 		return api.GetCart401JSONResponse(
 			errorResponse("unauthorized", "missing jwt claims"),
-			), nil
+		), nil
 	}
-	
+
 	cart, err := h.service.GetCart(ctx, claims.UserID)
 	if err != nil {
 		return mapGetCartError(h.log, err), nil
 	}
-
-	
 
 	return api.GetCart200JSONResponse(
 		toCartResponse(cart),

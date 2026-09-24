@@ -7,9 +7,9 @@ import (
 )
 
 func (h *ProductHandler) CreateProduct(
-	ctx context.Context, 
+	ctx context.Context,
 	req api.CreateProductRequestObject,
-	) (api.CreateProductResponseObject, error) {
+) (api.CreateProductResponseObject, error) {
 
 	product, err := h.service.Create(ctx, req.Body)
 	if err != nil {

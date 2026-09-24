@@ -14,19 +14,19 @@ import (
 )
 
 type ProductRepository struct {
-	db *bun.DB
+	db  *bun.DB
 	log *zap.Logger
 }
 
 func New(db *bun.DB, log *zap.Logger) *ProductRepository {
 	return &ProductRepository{
-		db: db,
+		db:  db,
 		log: log.Named("product-repository"),
 	}
 }
 
 func (r *ProductRepository) Create(ctx context.Context, p *domain.Product) error {
-	
+
 	_, err := r.db.NewInsert().Model(p).Exec(ctx)
 
 	if err != nil {
@@ -94,7 +94,7 @@ func (r *ProductRepository) Update(ctx context.Context, p *domain.Product) (*dom
 	}
 
 	return updated, nil
-}	
+}
 
 func (r *ProductRepository) Delete(ctx context.Context, id uuid.UUID) error {
 
@@ -104,7 +104,7 @@ func (r *ProductRepository) Delete(ctx context.Context, id uuid.UUID) error {
 		r.log.Error(
 			"delete product failed",
 			zap.Error(err),
-			zap.String("product_id", id.String(),),
+			zap.String("product_id", id.String()),
 		)
 
 		return fmt.Errorf("delete product: %w", err)

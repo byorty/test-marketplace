@@ -82,7 +82,7 @@ func TestHandler_AddToCart(t *testing.T) {
 					Quantity:  1,
 				},
 			},
-			ctx: context.Background(),
+			ctx:  context.Background(),
 			mock: &mocks.MockOrderService{},
 			checkResult: func(t *testing.T, resp api.AddToCartResponseObject) {
 				require.IsType(t, api.AddToCart401JSONResponse{}, resp)
@@ -208,7 +208,7 @@ func TestHandler_CreateOrder(t *testing.T) {
 						ID:           orderID,
 						UserID:       userID,
 						Status:       domain.Status("pending"),
-						TotalPrice:        150000,
+						TotalPrice:   150000,
 						CreatedAt:    now,
 						DeliveryDate: now.Add(5 * 24 * time.Hour),
 					}, nil
@@ -440,8 +440,6 @@ func TestHandler_GetCart(t *testing.T) {
 	}
 }
 
-
-
 func TestHandler_GetOrderByID(t *testing.T) {
 	t.Parallel()
 	productID1 := uuid.New()
@@ -478,7 +476,7 @@ func TestHandler_GetOrderByID(t *testing.T) {
 						ID:           orderID,
 						UserID:       expectedUserID,
 						Status:       domain.Status("pending"),
-						TotalPrice:        150000,
+						TotalPrice:   150000,
 						CreatedAt:    now,
 						DeliveryDate: deliveryDate,
 						Items: []domain.OrderItem{
@@ -531,7 +529,7 @@ func TestHandler_GetOrderByID(t *testing.T) {
 						ID:           orderID,
 						UserID:       expectedUserID,
 						Status:       domain.Status("pending"),
-						TotalPrice:        150000,
+						TotalPrice:   150000,
 						CreatedAt:    now,
 						DeliveryDate: deliveryDate,
 						Items:        []domain.OrderItem{},
@@ -583,10 +581,10 @@ func TestHandler_GetOrderByID(t *testing.T) {
 			mock: &mocks.MockOrderService{
 				GetOrderByIDFunc: func(ctx context.Context, userID, orderID uuid.UUID) (*domain.Order, error) {
 					return &domain.Order{
-						ID:     orderID,
-						UserID: expectedUserID,
-						Status: domain.Status("pending"),
-						TotalPrice:  150000,
+						ID:         orderID,
+						UserID:     expectedUserID,
+						Status:     domain.Status("pending"),
+						TotalPrice: 150000,
 					}, nil
 				},
 			},

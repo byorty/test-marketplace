@@ -17,11 +17,11 @@ func (h *ProductHandler) UpdateProduct(
 	}
 
 	return api.UpdateProduct200JSONResponse{
-		Name:          product.Name,
-		Description:   product.Description,
-		Category:      product.Category,
-		Price:         product.Price,
-		DeliveryDays:  product.DeliveryDays,
-		UpdatedAt:     product.UpdatedAt,
+		Name:         product.Name,
+		Description:  product.Description,
+		Category:     product.Category,
+		Price:        product.Price,
+		DeliveryDays: product.DeliveryDays,
+		UpdatedAt:    product.UpdatedAt,
 	}, nil
 }

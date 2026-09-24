@@ -19,7 +19,7 @@ func (h *OrderHandler) CreateOrder(
 		), nil
 	}
 
-	order, err := h.service.CreateOrder(ctx, claims.UserID); 
+	order, err := h.service.CreateOrder(ctx, claims.UserID)
 	if err != nil {
 		return mapCreateOrderError(h.log, err), nil
 	}
