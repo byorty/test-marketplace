@@ -110,6 +110,30 @@ func TestService_Create(t *testing.T) {
 			auth: allowAllAuthorizer(),
 		},
 		{
+			name: "success - delivery belongs to order owner not employee",
+			input: &domain.DeliveryCreateInput{
+				UserID:                uuid.New(),
+				OrderID:               orderID,
+				PickupAddress:         "123 Main St",
+				EstimatedDeliveryDate: futureDate,
+				Role:                  "employee",
+			},
+			repo: &mocks.MockDeliveryRepository{
+				GetByOrderIDFn: func(ctx context.Context, id uuid.UUID) (*domain.Delivery, error) {
+					return nil, domain.ErrDeliveryNotFound
+				},
+				CreateFn: func(ctx context.Context, d *domain.Delivery) error {
+					return nil
+				},
+			},
+			client: &mocks.MockOrderClient{
+				GetOrderByIDFn: func(ctx context.Context, id uuid.UUID) (*orderclient.OrderResponse, error) {
+					return &orderclient.OrderResponse{ID: id, UserID: userID, Status: "PAID"}, nil
+				},
+			},
+			auth: allowAllAuthorizer(),
+		},
+		{
 			name: "customer cannot create delivery",
 			input: &domain.DeliveryCreateInput{
 				UserID:                userID,
@@ -207,6 +231,24 @@ func TestService_Create(t *testing.T) {
 			client:  &mocks.MockOrderClient{},
 			auth:    allowAllAuthorizer(),
 			wantErr: ErrInvalidEstimatedDate,
+		},
+		{
+			name: "order not found",
+			input: &domain.DeliveryCreateInput{
+				UserID:                userID,
+				OrderID:               orderID,
+				PickupAddress:         "123 Main St",
+				EstimatedDeliveryDate: futureDate,
+				Role:                  "employee",
+			},
+			repo: &mocks.MockDeliveryRepository{},
+			client: &mocks.MockOrderClient{
+				GetOrderByIDFn: func(ctx context.Context, id uuid.UUID) (*orderclient.OrderResponse, error) {
+					return nil, orderclient.ErrOrderNotFound
+				},
+			},
+			auth:    allowAllAuthorizer(),
+			wantErr: orderclient.ErrOrderNotFound,
 		},
 		{
 			name: "order not paid",
@@ -309,6 +351,7 @@ func TestService_Create(t *testing.T) {
 				if errors.Is(tt.wantErr, domain.ErrDeliveryNotFound) ||
 					errors.Is(tt.wantErr, domain.ErrOrderNotPaid) ||
 					errors.Is(tt.wantErr, domain.ErrDeliveryAlreadyExists) ||
+					errors.Is(tt.wantErr, orderclient.ErrOrderNotFound) ||
 					errors.Is(tt.wantErr, ErrNilInput) ||
 					errors.Is(tt.wantErr, ErrInvalidOrderID) ||
 					errors.Is(tt.wantErr, ErrInvalidUserID) ||
@@ -327,7 +370,7 @@ func TestService_Create(t *testing.T) {
 			require.NotEqual(t, uuid.Nil, result.ID)
 			require.Equal(t, domain.DeliveryStatusPending, result.Status)
 			require.Equal(t, tt.input.OrderID, result.OrderID)
-			require.Equal(t, tt.input.UserID, result.UserID)
+			require.NotEqual(t, uuid.Nil, result.UserID)
 			require.Equal(t, tt.input.PickupAddress, result.PickupAddress)
 			require.False(t, result.CreatedAt.IsZero())
 			require.False(t, result.UpdatedAt.IsZero())

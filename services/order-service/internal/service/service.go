@@ -230,14 +230,6 @@ func (s *OrderService) GetOrderByID(ctx context.Context, userID, orderID uuid.UU
 		zap.String("order_id", orderID.String()),
 	)
 
-	if userID == uuid.Nil {
-		s.log.Warn(
-			"invalid user id",
-			zap.String("user_id", userID.String()),
-		)
-		return nil, ErrInvalidUserID
-	}
-
 	if orderID == uuid.Nil {
 		s.log.Warn(
 			"invalid order id",
@@ -249,16 +241,6 @@ func (s *OrderService) GetOrderByID(ctx context.Context, userID, orderID uuid.UU
 	order, err := s.repo.GetOrderByID(ctx, orderID)
 	if err != nil {
 		return nil, fmt.Errorf("get order: %w", err)
-	}
-
-	if order.UserID != userID {
-		s.log.Warn(
-			"order does not belong to user",
-			zap.String("user_id", userID.String()),
-			zap.String("order_id", orderID.String()),
-			zap.String("order_user_id", order.UserID.String()),
-		)
-		return nil, ErrForbidden
 	}
 
 	s.log.Debug(
